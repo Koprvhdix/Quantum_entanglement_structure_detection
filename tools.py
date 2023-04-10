@@ -91,6 +91,7 @@ def filter_k_partitionable_partitions(partitions_set, current_partition, k):
         partitions_set.add(current_partition)
         max_partition_set(partitions_set)
 
+
 def m_n_part(m, n, part):
     result = str()
     start_index = 0
@@ -101,11 +102,12 @@ def m_n_part(m, n, part):
     result += m[start_index:]
     return result
 
+
 def compute(P, Gamma):
     quantum_state_value_pair_dict = QuantumStateValuePairDict()
 
     for partition in Gamma:
-        print(partition)
+        # print(partition)
         value = Fraction(1, partition.partitionable)
         qsv_partition = QuantumStateValuePairDict()
         for quantum_pair in P:
