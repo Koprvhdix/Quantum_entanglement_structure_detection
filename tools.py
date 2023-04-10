@@ -1,4 +1,7 @@
+from fractions import Fraction
+
 from partition import Partition
+from quantum_state_value_pair import QuantumStateValuePairDict
 
 
 def max_partition_set(partitions_set):
@@ -40,11 +43,13 @@ def recursion_generate_partitions(filter_func):
 
     return inner
 
-def generate_k_stretchable_partitions(partite_number, k)
+
+def generate_k_stretchable_partitions(partite_number, k):
     partitions_set = set()
     part_index_of_item = [0 for i in range(partite_number)]
     filter_k_stretchable_partitions(partitions_set, part_index_of_item, 0, partite_number, k)
     return partitions_set
+
 
 @recursion_generate_partitions
 def filter_k_stretchable_partitions(partitions_set, current_partition, k):
@@ -53,6 +58,13 @@ def filter_k_stretchable_partitions(partitions_set, current_partition, k):
     else:
         partitions_set.add(current_partition)
         max_partition_set(partitions_set)
+
+
+def generate_k_producible_partitions(partite_number, k):
+    partitions_set = set()
+    part_index_of_item = [0 for i in range(partite_number)]
+    filter_k_producible_partitions(partitions_set, part_index_of_item, 0, partite_number, k)
+    return partitions_set
 
 
 @recursion_generate_partitions
@@ -64,6 +76,13 @@ def filter_k_producible_partitions(partitions_set, current_partition, k):
         max_partition_set(partitions_set)
 
 
+def generate_k_partitionable_partitions(partite_number, k):
+    partitions_set = set()
+    part_index_of_item = [0 for i in range(partite_number)]
+    filter_k_partitionable_partitions(partitions_set, part_index_of_item, 0, partite_number, k)
+    return partitions_set
+
+
 @recursion_generate_partitions
 def filter_k_partitionable_partitions(partitions_set, current_partition, k):
     if current_partition.partitionable < k:
@@ -72,3 +91,30 @@ def filter_k_partitionable_partitions(partitions_set, current_partition, k):
         partitions_set.add(current_partition)
         max_partition_set(partitions_set)
 
+def m_n_part(m, n, part):
+    result = str()
+    start_index = 0
+    for index in part:
+        result += m[start_index: index - 1]
+        result += n[index - 1]
+        start_index = index
+    result += m[start_index:]
+    return result
+
+def compute(P, Gamma):
+    quantum_state_value_pair_dict = QuantumStateValuePairDict()
+
+    for partition in Gamma:
+        print(partition)
+        value = Fraction(1, partition.partitionable)
+        qsv_partition = QuantumStateValuePairDict()
+        for quantum_pair in P:
+            for part in partition.partition_by_list:
+                temp_pair = QuantumStateValuePairDict()
+                temp_pair.add_pair(m_n_part(quantum_pair[0], quantum_pair[1], part), value)
+                temp_pair.add_pair(m_n_part(quantum_pair[1], quantum_pair[0], part), value)
+                qsv_partition = qsv_partition.union_add(temp_pair)
+                # print(str(temp_pair))
+        quantum_state_value_pair_dict = quantum_state_value_pair_dict.union_max(qsv_partition)
+
+    return quantum_state_value_pair_dict
