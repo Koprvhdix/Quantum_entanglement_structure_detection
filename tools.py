@@ -107,16 +107,21 @@ def compute(P, Gamma):
     quantum_state_value_pair_dict = QuantumStateValuePairDict()
 
     for partition in Gamma:
-        # print(partition)
-        value = Fraction(1, partition.partitionable)
         qsv_partition = QuantumStateValuePairDict()
         for quantum_pair in P:
+            quantum_state_set = set()
             for part in partition.partition_by_list:
-                temp_pair = QuantumStateValuePairDict()
-                temp_pair.add_pair(m_n_part(quantum_pair[0], quantum_pair[1], part), value)
-                temp_pair.add_pair(m_n_part(quantum_pair[1], quantum_pair[0], part), value)
-                qsv_partition = qsv_partition.union_add(temp_pair)
-                # print(str(temp_pair))
+                quantum_state_set.add(m_n_part(quantum_pair[0], quantum_pair[1], part))
+                quantum_state_set.add(m_n_part(quantum_pair[1], quantum_pair[0], part))
+            if quantum_pair[0] in quantum_state_set and quantum_pair[1] in quantum_state_set and len(
+                    quantum_state_set) != 2:
+                quantum_state_set.remove(quantum_pair[0])
+                quantum_state_set.remove(quantum_pair[1])
+            temp_pair = QuantumStateValuePairDict()
+            for key in quantum_state_set:
+                temp_pair.add_pair(key, Fraction(1, len(quantum_state_set)))
+            qsv_partition = qsv_partition.union_add(temp_pair)
+
         quantum_state_value_pair_dict = quantum_state_value_pair_dict.union_max(qsv_partition)
 
     return quantum_state_value_pair_dict
