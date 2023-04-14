@@ -9,12 +9,9 @@ if __name__ == "__main__":
     #      ['10011', '11100']]
 
     for k in range(-(N - 1), (N - 1)):
-        print(k)
         Gamma_stretchable = generate_k_stretchable_partitions(N, k)
-        quantum_state_value_pair_dict = compute(P, Gamma_stretchable)
-        print(str(quantum_state_value_pair_dict))
-
-    # Gamma_stretchable = generate_k_producible_partitions(N, 3)
-    # quantum_state_value_pair_dict = compute(P, Gamma_stretchable)
-    # print(str(quantum_state_value_pair_dict))
+        best_qsv_list = compute(P, Gamma_stretchable)
+        print(k)
+        for qsv in best_qsv_list:
+            print(str(qsv))
 
