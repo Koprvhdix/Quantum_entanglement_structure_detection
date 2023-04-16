@@ -53,12 +53,13 @@ class QuantumStateValuePairDict(object):
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            for key in self.quantum_state_value_dict:
-                if key not in other.quantum_state_value_dict:
-                    return False
-                elif self.quantum_state_value_dict[key] != other.quantum_state_value_dict[key]:
-                    return False
-            return True
+            if self.quantum_state_value_dict.keys() & other.quantum_state_value_dict.keys() == self.quantum_state_value_dict.keys():
+                for key in self.quantum_state_value_dict:
+                    if self.quantum_state_value_dict[key] != other.quantum_state_value_dict[key]:
+                        return False
+                return True
+            else:
+                return False
         else:
             return False
 
