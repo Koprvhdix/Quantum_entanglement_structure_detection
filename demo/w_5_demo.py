@@ -8,7 +8,7 @@ if __name__ == "__main__":
     P = [['00000', '01111'], ['00000', '10011'], ['00000', '11100'], ['01111', '10011'], ['01111', '11100'],
          ['10011', '11100']]
 
-    for k in range(-(N - 3), (N - 1)):
+    for k in range(-(N - 1), (N - 1)):
         Gamma_stretchable = generate_k_stretchable_partitions(N, k)
         best_qsv_list = compute(P, Gamma_stretchable)
         print(k)

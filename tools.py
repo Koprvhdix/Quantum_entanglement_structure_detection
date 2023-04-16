@@ -146,7 +146,7 @@ def union_max_list_optimize(current_qsv_list, part_qsv, p_state_set):
             union_list = list()
             min_count = -1
             for qsv_2 in current_qsv_list:
-                count = len(qsv_1.quantum_state_value_dict.keys() & qsv_2.quantum_state_value_dict.keys())
+                count = len(qsv_1.quantum_state_value_dict.keys() | qsv_2.quantum_state_value_dict.keys())
 
                 if min_count == -1 or min_count > count:
                     min_count = count
