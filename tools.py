@@ -139,81 +139,13 @@ def union_max_list_optimize(current_qsv_list, part_qsv, p_state_set):
     if len(current_qsv_list) == 0:
         for qsv in part_qsv:
             current_qsv_list.append(qsv)
-        current_qsv_list = optimize_qsv_list(current_qsv_list, p_state_set)
     else:
         temp_qsv_list = list()
         for qsv_1 in part_qsv:
-            union_list = list()
-            min_count = -1
             for qsv_2 in current_qsv_list:
-                count = len(qsv_1.quantum_state_value_dict.keys() | qsv_2.quantum_state_value_dict.keys())
-
-                if min_count == -1 or min_count > count:
-                    min_count = count
-                    union_list.clear()
-                    union_list.append(qsv_2)
-                elif min_count == count:
-                    union_list.append(qsv_2)
-
-            for qsv_2 in union_list:
-                temp_qsv_list.append(qsv_1.union_max(qsv_2))
-            temp_qsv_list = optimize_qsv_list(temp_qsv_list, p_state_set)
+                optimize_add_qsv(temp_qsv_list, qsv_1.union_max(qsv_2), p_state_set)
         current_qsv_list = temp_qsv_list
-
-    # current_qsv_list = optimize_qsv_list(current_qsv_list, p_state_set)
     return current_qsv_list
-
-
-def remove_duplicate_qsv(qsv_list):
-    remove_list = list()
-
-    for i in range(len(qsv_list)):
-        for j in range(i + 1, len(qsv_list)):
-            if qsv_list[i] == qsv_list[j]:
-                remove_list.append(qsv_list[i])
-                break
-
-    for qsv in remove_list:
-        qsv_list.remove(qsv)
-
-
-def optimize_qsv_list(qsv_list, p_state_set):
-    if len(qsv_list) == 1:
-        return qsv_list
-
-    remove_duplicate_qsv(qsv_list)
-
-    remove_list = list()
-
-    key_list = list()
-    for i in range(len(qsv_list)):
-        key_list.append(set(qsv_list[i].quantum_state_value_dict.keys()))
-
-    for i in range(len(qsv_list)):
-        for j in range(len(qsv_list)):
-            if i == j:
-                continue
-
-            is_remove = True
-
-            if key_list[i].issubset(key_list[j]):
-                for key in qsv_list[i].quantum_state_value_dict:
-                    if key in p_state_set:
-                        continue
-                    if qsv_list[i].quantum_state_value_dict[key] < qsv_list[j].quantum_state_value_dict[key]:
-                        is_remove = False
-                        break
-            else:
-                is_remove = False
-
-            if is_remove:
-                remove_list.append(qsv_list[i])
-                break
-
-    for qsv in remove_list:
-        qsv_list.remove(qsv)
-
-    return qsv_list
 
 
 def compute_P_upper_bound(qs_candidate_list, P):
@@ -250,7 +182,7 @@ def recursion_part_qsv(partition_qs, current_index, current_qsv_dict, p_qsv_dict
         return
 
     if current_index == len(partition_qs):
-        result_list.append(current_qsv_dict)
+        optimize_add_qsv(result_list, current_qsv_dict, p_state_set)
         return
 
     for qs in partition_qs[current_index]:
@@ -261,3 +193,48 @@ def recursion_part_qsv(partition_qs, current_index, current_qsv_dict, p_qsv_dict
         temp_dict.add_pair(state_2, Fraction(1, 2))
         recursion_part_qsv(partition_qs, current_index + 1, current_qsv_dict.union_add(temp_dict), p_qsv_dict,
                            result_list, p_state_set)
+
+def optimize_add_qsv(qsv_list, current_qsv_dict, p_state_set):
+    if len(qsv_list) == 0:
+        qsv_list.append(current_qsv_dict)
+        return
+
+    qsv_list_count = Fraction(0, 1)
+    qsv_list_key_number = 0
+    for key in qsv_list[0].quantum_state_value_dict:
+        if key in p_state_set:
+            continue
+        else:
+            qsv_list_count += qsv_list[0].quantum_state_value_dict[key]
+            qsv_list_key_number += 1
+
+    current_qsv_count = Fraction(0, 1)
+    current_qsv_key_number = 0
+    for key in current_qsv_dict.quantum_state_value_dict:
+        if key in p_state_set:
+            continue
+        else:
+            current_qsv_count += current_qsv_dict.quantum_state_value_dict[key]
+            current_qsv_key_number += 1
+
+    if current_qsv_count < qsv_list_count:
+        qsv_list.clear()
+        qsv_list.append(current_qsv_dict)
+        return
+    elif current_qsv_count > qsv_list_count:
+        return
+
+    if current_qsv_key_number > qsv_list_key_number:
+        qsv_list.clear()
+        qsv_list.append(current_qsv_dict)
+        return
+    elif current_qsv_key_number < qsv_list_key_number:
+        return
+
+    for qsv in qsv_list:
+        if qsv == current_qsv_dict:
+            return
+
+    qsv_list.append(current_qsv_dict)
+
+

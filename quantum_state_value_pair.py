@@ -41,6 +41,12 @@ class QuantumStateValuePairDict(object):
         else:
             return self
 
+    def compute_sum(self):
+        sum_value = 0
+        for key in self.quantum_state_value_dict:
+            sum_value += self.quantum_state_value_dict[key]
+        return sum_value
+
     def __str__(self):
         str_list = list()
         new_key_list = sorted(self.quantum_state_value_dict.keys())
