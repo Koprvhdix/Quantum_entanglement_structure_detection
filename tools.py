@@ -168,12 +168,12 @@ def compute_P_upper_bound(qs_candidate_list, P):
 
 
 def qsv_compare_q(current_qsv_dict, p_qsv_dict, p_state_set):
-    for key in p_state_set:
-        if key in current_qsv_dict.quantum_state_value_dict:
-            if key not in p_qsv_dict.quantum_state_value_dict:
-                return True
-            elif current_qsv_dict.quantum_state_value_dict[key] > p_qsv_dict.quantum_state_value_dict[key]:
-                return True
+    if len((current_qsv_dict.quantum_state_value_dict.keys() - p_qsv_dict.quantum_state_value_dict.keys()) & p_state_set) > 0:
+        return True
+
+    for key in (p_qsv_dict.quantum_state_value_dict.keys() & current_qsv_dict.quantum_state_value_dict.keys()):
+        if current_qsv_dict.quantum_state_value_dict[key] > p_qsv_dict.quantum_state_value_dict[key]:
+            return True
     return False
 
 
@@ -193,6 +193,7 @@ def recursion_part_qsv(partition_qs, current_index, current_qsv_dict, p_qsv_dict
         temp_dict.add_pair(state_2, Fraction(1, 2))
         recursion_part_qsv(partition_qs, current_index + 1, current_qsv_dict.union_add(temp_dict), p_qsv_dict,
                            result_list, p_state_set)
+
 
 def optimize_add_qsv(qsv_list, current_qsv_dict, p_state_set):
     if len(qsv_list) == 0:

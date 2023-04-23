@@ -11,6 +11,7 @@ if __name__ == "__main__":
         print(k)
         for qsv in best_qsv_list:
             print(str(qsv))
+            print(qsv.compute_sum())
 
     # Gamma_stretchable = generate_k_stretchable_partitions(N, -1)
     # best_qsv_list = compute(P, Gamma_stretchable)
