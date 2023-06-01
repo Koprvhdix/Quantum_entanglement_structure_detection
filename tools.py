@@ -12,7 +12,8 @@ def min_union(M):
     combination_list = list()
     min_union_len = float('inf')
     for combination in product(*M):
-        union_set = set().union(*combination)
+        new_combination = [[elem for s in row for elem in s.split('.')] for row in combination]
+        union_set = set().union(*new_combination)
         if len(union_set) < min_union_len:
             min_union_len = len(union_set)
             combination_list.clear()
@@ -144,9 +145,18 @@ def compute(P, Gamma):
             columns_list.append(column)
 
     min_union_pair_list = min_union(union_pair_list)
+    min_sum_value = float('inf')
+    best_choice = None
     for min_union_pair in min_union_pair_list:
         temp_candidate = qs_candidate.copy()
-        select_best_choice(min_union_pair, temp_candidate, columns_list, union_max)
+        current_choice, current_sum_value = select_best_choice(min_union_pair, temp_candidate, columns_list, union_max)
+        if current_sum_value < min_sum_value:
+            best_choice = current_choice
+            min_sum_value = current_sum_value
+
+    # latex best choice
+    best_choice = pd.DataFrame(best_choice)
+    print(best_choice.to_csv())
 
 
 def select_n_sub(candidate, current_list, index, current, n, result_list):
@@ -158,6 +168,7 @@ def select_n_sub(candidate, current_list, index, current, n, result_list):
 
 
 def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
+    partition_list = qs_candidate['Partitions']
     qs_candidate = qs_candidate.drop('Partitions', axis=1)
     for col in qs_candidate.columns:
         # 获取限定范围
@@ -165,12 +176,12 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
         # 应用函数，删除不在限定范围内的值
         qs_candidate[col] = qs_candidate[col].apply(lambda x: [i for i in x if i in r])
 
-    # can select one of them
     best_choices_list = list()
     for a in range(len(qs_candidate.values)):
         choices = list(product(*qs_candidate.values[a]))
         current_best_choices = list()
         min_value = float('inf')
+        max_count = 0
         for choice in choices:
             choice_list = list(choice)
             qs_result = handle_choice(choice_list)
@@ -183,24 +194,39 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
 
             if condition:
                 value = max(qs_result.values())
-                if value < min_value:
+                count = len(qs_result.keys())
+                if (value < min_value and count > max_count) or (count > max_count and value == min_value) or (value < min_value and count == max_count):
                     current_best_choices.clear()
                     current_best_choices.append(choice_list)
                     min_value = value
-                elif value == min_value:
+                    max_count = count
+                elif value == min_value and count == max_count:
                     current_best_choices.append(choice_list)
-        print(min_value)
         best_choices_list.append(current_best_choices)
 
-    result_1 = dict()
-    for best_choice in best_choices_list:
-        result_1 = merge_dicts(result_1, handle_choice(best_choice[random.randint(0, len(best_choice) - 1)]))
+    # select 10 choice randomly, find the best one
+    result_choice = None
+    min_sum_value = float('inf')
+    count = 0
+    while count < 10:
+        qs_value_dict = dict()
+        current_choice = dict()
+        current_choice['Partitions'] = partition_list
+        for col in columns_list:
+            current_choice[col] = list()
+        for best_choice in best_choices_list:
+            choice = best_choice[random.randint(0, len(best_choice) - 1)]
+            qs_value_dict = merge_dicts(qs_value_dict, handle_choice(choice))
+            for i in range(len(columns_list)):
+                current_choice[columns_list[i]].append(choice[i])
+        choice_coefficients_sum = sum(value for key, value in qs_value_dict.items() if key not in union_max.keys())
 
-    result_2 = dict()
-    for best_choice in best_choices_list:
-        result_2 = merge_dicts(result_2, handle_choice(best_choice[random.randint(0, len(best_choice) - 1)]))
+        if choice_coefficients_sum < min_sum_value:
+            min_sum_value = choice_coefficients_sum
+            result_choice = current_choice
+        count += 1
 
-    print(len(result_1.keys()), sum(result_1.values()), len(result_2.keys()), sum(result_2.values()))
+    return result_choice, min_sum_value
 
 
 def handle_choice(choice_list):
