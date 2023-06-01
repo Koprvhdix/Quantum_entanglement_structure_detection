@@ -1,8 +1,25 @@
+import random
 from fractions import Fraction
 
 from quantum_state_value_pair import QuantumStateValuePairDict
 
 import pandas as pd
+
+from itertools import product
+
+
+def min_union(M):
+    combination_list = list()
+    min_union_len = float('inf')
+    for combination in product(*M):
+        union_set = set().union(*combination)
+        if len(union_set) < min_union_len:
+            min_union_len = len(union_set)
+            combination_list.clear()
+            combination_list.append(combination)
+        elif len(union_set) == min_union_len:
+            combination_list.append(combination)
+    return combination_list
 
 
 def get_quantum_state_of_p(P):
@@ -37,167 +54,170 @@ def phi_quantum_list(quantum_list, N):
     return index_set
 
 
-def compute_coefficient_of_p_quantum_state(P, N):
-    state_pair_dict = dict()
-    for quantum_pair in P:
-        if quantum_pair[0] not in state_pair_dict:
-            state_pair_dict[quantum_pair[0]] = list()
-        if quantum_pair[1] not in state_pair_dict:
-            state_pair_dict[quantum_pair[1]] = list()
-        state_pair_dict[quantum_pair[0]].append(quantum_pair[1])
-        state_pair_dict[quantum_pair[1]].append(quantum_pair[0])
-
-    for quantum in state_pair_dict:
-        for a in range(1, len(state_pair_dict[quantum])):
-            pass
-
-    quantum_coefficient_dict = dict()
-    return quantum_coefficient_dict
-
-
 def compute(P, Gamma):
     qs_candidate_list = list()
 
+    # compute the candidate matrix
     for partition in Gamma:
-        partition_candidate_list = list()
-        partition_candidate_list.append(dict())
-        partition_candidate_list[0]['Partitions'] = partition.partition_by_str
+        partition_candidate_list = dict()
+        partition_candidate_list['Partitions'] = partition.partition_by_str
         for quantum_pair in P:
             quantum_state_set = set()
             for part in partition.partition_by_list:
                 quantum_state_set.add(".".join(sorted([m_n_part(quantum_pair[0], quantum_pair[1], part),
                                                        m_n_part(quantum_pair[1], quantum_pair[0], part)])))
-            temp_quantum_state_list = list(quantum_state_set)
-            for i in range(len(temp_quantum_state_list)):
-                if i == len(partition_candidate_list):
-                    partition_candidate_list.append(dict())
-                    partition_candidate_list[i]['Partitions'] = ""
-                partition_candidate_list[i][".".join(sorted(quantum_pair))] = temp_quantum_state_list[i]
-        for line in partition_candidate_list:
-            qs_candidate_list.append(line)
+            partition_candidate_list[".".join(sorted(quantum_pair))] = list(quantum_state_set)
+        qs_candidate_list.append(partition_candidate_list)
 
+    # select the only one choice
     qs_candidate = pd.DataFrame(qs_candidate_list)
-    print(qs_candidate.to_csv())
+    column_pair_dict = dict()
+    for column in qs_candidate.columns:
+        if column == "Partitions":
+            continue
+        column_pair_set = set()
+        for pair_list in qs_candidate[column]:
+            if len(pair_list) == 1:
+                column_pair_set.add(pair_list[0])
+            if len(pair_list) == 2 and column in pair_list:
+                column_pair_set.add(pair_list[0] if column == pair_list[1] else pair_list[1])
+        column_pair_dict[column] = column_pair_set
 
-    # p_qsv_dict = compute_P_upper_bound(qs_candidate_list, P)
-    # partition_qsv_list = list()
-    #
-    # for partition_qs in qs_candidate_list:
-    #     result_list = list()
-    #     recursion_part_qsv(partition_qs, 0, QuantumStateValuePairDict(), p_qsv_dict, result_list, p_state_set)
-    #     partition_qsv_list.append(result_list)
-    #
-    current_qsv_list = list()
-    #
-    # for part_qsv in partition_qsv_list:
-    #     current_qsv_list = union_max_list_optimize(current_qsv_list, part_qsv, p_state_set)
+    # 计算 P 的系数
+    union_max = dict()
+    for index, line in qs_candidate.iterrows():
+        union_add = dict()
+        for column in qs_candidate.columns:
+            if column == "Partitions":
+                continue
+            if len(line[column]) == 1 and line[column][0] == column:
+                quantum = column.split(".")
+                if quantum[0] not in union_add:
+                    union_add[quantum[0]] = 0
+                if quantum[1] not in union_add:
+                    union_add[quantum[1]] = 0
+                union_add[quantum[0]] += Fraction(1, 2)
+                union_add[quantum[1]] += Fraction(1, 2)
+        for key in union_add:
+            if key not in union_max:
+                union_max[key] = 0
+            if union_max[key] < union_add[key]:
+                union_max[key] = union_add[key]
 
-    return current_qsv_list
+    union_pair_list = list()
+    columns_list = list()
+    # 选取最小集合
+    for column in qs_candidate.columns:
+        if column == "Partitions":
+            continue
+
+        union_pair_set = set()
+        need_to_cover_list = list()
+        for pair_list in qs_candidate[column]:
+            pair_set = set(pair_list)
+            if column in pair_set:
+                pair_set.remove(column)
+            if pair_set & column_pair_dict[column] == set():
+                union_pair_set = union_pair_set.union(pair_set)
+                need_to_cover_list.append(pair_set)
+
+        if union_pair_set != set():
+            for pair_count in range(1, len(union_pair_set)):
+                current_result = list()
+                select_n_sub(list(union_pair_set), list(), 0, 0, pair_count, current_result)
+                # 检查是否能盖住
+                current_min_pair_list = list()
+                for pair_set in current_result:
+                    cover_index = set()
+                    for pair in pair_set:
+                        for i in range(len(need_to_cover_list)):
+                            if pair in need_to_cover_list[i]:
+                                cover_index.add(i)
+                    if len(cover_index) == len(need_to_cover_list):
+                        current_min_pair_list.append(list(column_pair_dict[column]) + pair_set)
+                if len(current_min_pair_list) > 0:
+                    union_pair_list.append(current_min_pair_list)
+                    columns_list.append(column)
+                    break
+        else:
+            union_pair_list.append([list(column_pair_dict[column])])
+            columns_list.append(column)
+
+    min_union_pair_list = min_union(union_pair_list)
+    for min_union_pair in min_union_pair_list:
+        temp_candidate = qs_candidate.copy()
+        select_best_choice(min_union_pair, temp_candidate, columns_list, union_max)
 
 
-def select_quantum_from_candidate(qs_candidate_list, quantum_coefficient_dict, k_comb):
-    qsv_list = list()
-    pass
+def select_n_sub(candidate, current_list, index, current, n, result_list):
+    if current == n:
+        result_list.append(current_list)
+        return
+    for temp_index in range(index, len(candidate)):
+        select_n_sub(candidate, current_list + [candidate[temp_index]], temp_index + 1, current + 1, n, result_list)
 
-# def union_max_list_optimize(current_qsv_list, part_qsv, p_state_set):
-#     if len(current_qsv_list) == 0:
-#         for qsv in part_qsv:
-#             current_qsv_list.append(qsv)
-#     else:
-#         temp_qsv_list = list()
-#         for qsv_1 in part_qsv:
-#             for qsv_2 in current_qsv_list:
-#                 optimize_add_qsv(temp_qsv_list, qsv_1.union_max(qsv_2), p_state_set)
-#         current_qsv_list = temp_qsv_list
-#     return current_qsv_list
-#
-#
-# def compute_P_upper_bound(qs_candidate_list, P):
-#     p_set = [".".join(sorted([item[0], item[1]])) for item in P]
-#
-#     p_qsv_dict = QuantumStateValuePairDict()
-#     for partition_qs in qs_candidate_list:
-#         partition_qsv_dict = QuantumStateValuePairDict()
-#         for qs in partition_qs:
-#             if len(qs) == 1 and qs[0] in p_set:
-#                 temp_qsv_dict = QuantumStateValuePairDict()
-#                 state_1 = qs[0].split(".")[0]
-#                 state_2 = qs[0].split(".")[1]
-#                 temp_qsv_dict.add_pair(state_1, Fraction(1, 2))
-#                 temp_qsv_dict.add_pair(state_2, Fraction(1, 2))
-#                 partition_qsv_dict = partition_qsv_dict.union_add(temp_qsv_dict)
-#         p_qsv_dict = p_qsv_dict.union_max(partition_qsv_dict)
-#
-#     return p_qsv_dict
-#
-#
-# def qsv_compare_q(current_qsv_dict, p_qsv_dict, p_state_set):
-#     for key in p_state_set:
-#         if key in current_qsv_dict.quantum_state_value_dict:
-#             if key not in p_qsv_dict.quantum_state_value_dict:
-#                 return True
-#             elif current_qsv_dict.quantum_state_value_dict[key] > p_qsv_dict.quantum_state_value_dict[key]:
-#                 return True
-#     return False
-#
-#
-# def recursion_part_qsv(partition_qs, current_index, current_qsv_dict, p_qsv_dict, result_list, p_state_set):
-#     if qsv_compare_q(current_qsv_dict, p_qsv_dict, p_state_set):
-#         return
-#
-#     if current_index == len(partition_qs):
-#         optimize_add_qsv(result_list, current_qsv_dict, p_state_set)
-#         return
-#
-#     for qs in partition_qs[current_index]:
-#         temp_dict = QuantumStateValuePairDict()
-#         state_1 = qs.split(".")[0]
-#         state_2 = qs.split(".")[1]
-#         temp_dict.add_pair(state_1, Fraction(1, 2))
-#         temp_dict.add_pair(state_2, Fraction(1, 2))
-#         recursion_part_qsv(partition_qs, current_index + 1, current_qsv_dict.union_add(temp_dict), p_qsv_dict,
-#                            result_list, p_state_set)
-#
-#
-# def optimize_add_qsv(qsv_list, current_qsv_dict, p_state_set):
-#     if len(qsv_list) == 0:
-#         qsv_list.append(current_qsv_dict)
-#         return
-#
-#     qsv_list_count = Fraction(0, 1)
-#     qsv_list_key_number = 0
-#     for key in qsv_list[0].quantum_state_value_dict:
-#         if key in p_state_set:
-#             continue
-#         else:
-#             qsv_list_count += qsv_list[0].quantum_state_value_dict[key]
-#             qsv_list_key_number += 1
-#
-#     current_qsv_count = Fraction(0, 1)
-#     current_qsv_key_number = 0
-#     for key in current_qsv_dict.quantum_state_value_dict:
-#         if key in p_state_set:
-#             continue
-#         else:
-#             current_qsv_count += current_qsv_dict.quantum_state_value_dict[key]
-#             current_qsv_key_number += 1
-#
-#     if current_qsv_count < qsv_list_count:
-#         qsv_list.clear()
-#         qsv_list.append(current_qsv_dict)
-#         return
-#     elif current_qsv_count > qsv_list_count:
-#         return
-#
-#     if current_qsv_key_number > qsv_list_key_number:
-#         qsv_list.clear()
-#         qsv_list.append(current_qsv_dict)
-#         return
-#     elif current_qsv_key_number < qsv_list_key_number:
-#         return
-#
-#     for qsv in qsv_list:
-#         if qsv == current_qsv_dict:
-#             return
-#
-#     qsv_list.append(current_qsv_dict)
+
+def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
+    qs_candidate = qs_candidate.drop('Partitions', axis=1)
+    for col in qs_candidate.columns:
+        # 获取限定范围
+        r = min_union_pair[columns_list.index(col)]
+        # 应用函数，删除不在限定范围内的值
+        qs_candidate[col] = qs_candidate[col].apply(lambda x: [i for i in x if i in r])
+
+    # can select one of them
+    best_choices_list = list()
+    for a in range(len(qs_candidate.values)):
+        choices = list(product(*qs_candidate.values[a]))
+        current_best_choices = list()
+        min_value = float('inf')
+        for choice in choices:
+            choice_list = list(choice)
+            qs_result = handle_choice(choice_list)
+
+            condition = True
+            for key, value in union_max.items():
+                if key in qs_result and value < qs_result[key]:
+                    condition = False
+                    break
+
+            if condition:
+                value = max(qs_result.values())
+                if value < min_value:
+                    current_best_choices.clear()
+                    current_best_choices.append(choice_list)
+                    min_value = value
+                elif value == min_value:
+                    current_best_choices.append(choice_list)
+        print(min_value)
+        best_choices_list.append(current_best_choices)
+
+    result_1 = dict()
+    for best_choice in best_choices_list:
+        result_1 = merge_dicts(result_1, handle_choice(best_choice[random.randint(0, len(best_choice) - 1)]))
+
+    result_2 = dict()
+    for best_choice in best_choices_list:
+        result_2 = merge_dicts(result_2, handle_choice(best_choice[random.randint(0, len(best_choice) - 1)]))
+
+    print(len(result_1.keys()), sum(result_1.values()), len(result_2.keys()), sum(result_2.values()))
+
+
+def handle_choice(choice_list):
+    result_dict = dict()
+    for pair in choice_list:
+        state_1, state_2 = pair.split('.')
+        result_dict[state_1] = result_dict.get(state_1, 0) + Fraction(1, 2)
+        result_dict[state_2] = result_dict.get(state_2, 0) + Fraction(1, 2)
+    return result_dict
+
+def merge_dicts(d1, d2):
+    result = {}
+    for key, value in d1.items():
+        result[key] = value
+    for key, value in d2.items():
+        if key in result:
+            result[key] = max(result[key], value)
+        else:
+            result[key] = value
+    return result

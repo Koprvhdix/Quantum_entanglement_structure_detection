@@ -1,24 +1,16 @@
-from fractions import Fraction
+from itertools import product
 
-from quantum_state_value_pair import QuantumStateValuePairDict
-from tools import optimize_qsv_list
+def min_union(M):
+    min_union_set = set()
+    min_union_len = float('inf')
+    for combination in product(*M):
+        union_set = set().union(*combination)
+        if len(union_set) < min_union_len:
+            min_union_set = union_set
+            min_union_len = len(union_set)
+    return min_union_set
 
-if __name__ == "__main__":
-    quantum_state_value_pair = QuantumStateValuePairDict()
-    quantum_state_value_pair.add_pair("00", Fraction(1, 2))
-    quantum_state_value_pair.add_pair("01", Fraction(4, 1))
-
-    quantum_state_value_pair_2 = QuantumStateValuePairDict()
-    quantum_state_value_pair_2.add_pair("00", Fraction(1, 2))
-    quantum_state_value_pair_2.add_pair("02", Fraction(4, 1))
-
-    print(quantum_state_value_pair == quantum_state_value_pair_2)
-
-    # a = {1, 2, 3}
-    # b = {1, 2, 3, 4}
-    # print(a.issubset(b))
-    #
-    # test = dict()
-    # test['a'] = b
-    # print(set(test.keys()))
-
+# 示例
+M = [[[1, 2], [3, 4]], [[2, 3], [4, 5]], [[3, 4], [5, 6]]]
+result = min_union(M)
+print(result)

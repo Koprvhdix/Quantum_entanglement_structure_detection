@@ -12,8 +12,8 @@ if __name__ == "__main__":
     #     print(k)
     #     for qsv in best_qsv_list:
     #         print(str(qsv))
-
-    Gamma_stretchable = generate_k_stretchable_partitions(N, 0)
-    best_qsv_list = compute(P, Gamma_stretchable)
-    for qsv in best_qsv_list:
-        print(str(qsv))
+    #
+    # Gamma_stretchable = generate_k_stretchable_partitions(N, 0)
+    # best_qsv_list = compute(P, Gamma_stretchable)
+    # for qsv in best_qsv_list:
+    #     print(str(qsv))
