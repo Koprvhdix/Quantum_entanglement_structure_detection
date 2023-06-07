@@ -1,3 +1,4 @@
+import itertools
 import random
 from fractions import Fraction
 
@@ -5,7 +6,7 @@ from quantum_state_value_pair import QuantumStateValuePairDict
 
 import pandas as pd
 
-from itertools import product
+from itertools import product, combinations
 
 
 def min_union(M):
@@ -55,7 +56,14 @@ def phi_quantum_list(quantum_list, N):
     return index_set
 
 
-def compute(P, Gamma):
+def frac_to_latex(frac):
+    if frac.denominator == 1:
+        return str(frac.numerator)
+    else:
+        return r'\frac{{{}}}{{{}}}'.format(frac.numerator, frac.denominator)
+
+
+def compute(P, Gamma, dim=2):
     qs_candidate_list = list()
 
     # compute the candidate matrix
@@ -124,18 +132,24 @@ def compute(P, Gamma):
 
         if union_pair_set != set():
             for pair_count in range(1, len(union_pair_set)):
-                current_result = list()
-                select_n_sub(list(union_pair_set), list(), 0, 0, pair_count, current_result)
+                current_result = list(combinations(list(union_pair_set), pair_count))
+                # select_n_sub(list(union_pair_set), list(), 0, 0, pair_count, current_result)
                 # 检查是否能盖住
                 current_min_pair_list = list()
                 for pair_set in current_result:
-                    cover_index = set()
-                    for pair in pair_set:
-                        for i in range(len(need_to_cover_list)):
-                            if pair in need_to_cover_list[i]:
-                                cover_index.add(i)
-                    if len(cover_index) == len(need_to_cover_list):
-                        current_min_pair_list.append(list(column_pair_dict[column]) + pair_set)
+                    is_cover = True
+                    for lst in need_to_cover_list:
+                        if not any(item in pair_set for item in lst):
+                            is_cover = False
+                            break
+                    # cover_index = set()
+                    # for pair in pair_set:
+                    #     for i in range(len(need_to_cover_list)):
+                    #         if pair in need_to_cover_list[i]:
+                    #             cover_index.add(i)
+                    # if len(cover_index) == len(need_to_cover_list):
+                    if is_cover:
+                        current_min_pair_list.append(list(column_pair_dict[column]) + list(pair_set))
                 if len(current_min_pair_list) > 0:
                     union_pair_list.append(current_min_pair_list)
                     columns_list.append(column)
@@ -147,24 +161,40 @@ def compute(P, Gamma):
     min_union_pair_list = min_union(union_pair_list)
     min_sum_value = float('inf')
     best_choice = None
+    best_qs_value_dict = None
     for min_union_pair in min_union_pair_list:
         temp_candidate = qs_candidate.copy()
-        current_choice, current_sum_value = select_best_choice(min_union_pair, temp_candidate, columns_list, union_max)
+        current_choice, current_sum_value, current_best_qs_value_dict = select_best_choice(min_union_pair, temp_candidate, columns_list, union_max)
         if current_sum_value < min_sum_value:
             best_choice = current_choice
             min_sum_value = current_sum_value
+            best_qs_value_dict = current_best_qs_value_dict
 
     # latex best choice
     best_choice = pd.DataFrame(best_choice)
     print(best_choice.to_csv())
+    print(min_sum_value)
+
+    str_list = list()
+    sorted_items = sorted(best_qs_value_dict.items(), key=lambda x: x[1], reverse=True)
+    # 按顺序输出值和对应的键
+    for value, group in itertools.groupby(sorted_items, key=lambda x: x[1]):
+        keys = sorted([item[0] for item in group])
+        if len(keys) > 1:
+            str_list.append(frac_to_latex(value) + " \\times (" + " + ".join([ "\\rho_{" + str(int(key, dim) + 1) + "," + str(int(key, dim) + 1) + "}" for key in keys ]) + ")")
+        else:
+            str_list.append(frac_to_latex(value) + " \\times " + " + ".join(
+                ["\\rho_{" + str(int(key, dim) + 1) + "," + str(int(key, dim) + 1) + "}" for key in keys]))
+
+    print(" + ".join([ "|\\rho_{" + str(int(item[0], dim) + 1) + "," + str(int(item[1], dim) + 1) + "}|" for item in P ]) + " \\le " + " + ".join(str_list))
 
 
-def select_n_sub(candidate, current_list, index, current, n, result_list):
-    if current == n:
-        result_list.append(current_list)
-        return
-    for temp_index in range(index, len(candidate)):
-        select_n_sub(candidate, current_list + [candidate[temp_index]], temp_index + 1, current + 1, n, result_list)
+# def select_n_sub(candidate, current_list, index, current, n, result_list):
+#     if current == n:
+#         result_list.append(current_list)
+#         return
+#     for temp_index in range(index, len(candidate)):
+#         select_n_sub(candidate, current_list + [candidate[temp_index]], temp_index + 1, current + 1, n, result_list)
 
 
 def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
@@ -207,6 +237,7 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
     # select 10 choice randomly, find the best one
     result_choice = None
     min_sum_value = float('inf')
+    best_qs_value_dict = None
     count = 0
     while count < 10:
         qs_value_dict = dict()
@@ -224,9 +255,10 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
         if choice_coefficients_sum < min_sum_value:
             min_sum_value = choice_coefficients_sum
             result_choice = current_choice
+            best_qs_value_dict = qs_value_dict
         count += 1
 
-    return result_choice, min_sum_value
+    return result_choice, min_sum_value, best_qs_value_dict
 
 
 def handle_choice(choice_list):
