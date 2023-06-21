@@ -1,3 +1,6 @@
+import copy
+from itertools import combinations
+
 from partition import Partition
 
 
@@ -45,6 +48,7 @@ def generate_k_stretchable_partitions(partite_number, k):
     partitions_set = set()
     part_index_of_item = [0 for i in range(partite_number)]
     filter_k_stretchable_partitions(partitions_set, part_index_of_item, 0, partite_number, k)
+    max_partition_set(partitions_set)
     return partitions_set
 
 

@@ -1,8 +1,7 @@
 import itertools
-from itertools import product
 
+from partition_tools import generate_k_producible_partitions
 from tools import compute
-from partition_tools import generate_k_stretchable_partitions, generate_k_producible_partitions
 
 if __name__ == "__main__":
     N = 4

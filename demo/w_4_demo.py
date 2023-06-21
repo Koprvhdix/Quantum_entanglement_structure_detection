@@ -1,5 +1,5 @@
-from tools import compute
 from partition_tools import generate_k_stretchable_partitions
+from tools import compute
 
 if __name__ == "__main__":
     N = 4

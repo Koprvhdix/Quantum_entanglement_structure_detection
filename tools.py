@@ -1,12 +1,10 @@
+import copy
 import itertools
 import random
 from fractions import Fraction
-
-from quantum_state_value_pair import QuantumStateValuePairDict
+from itertools import product, combinations
 
 import pandas as pd
-
-from itertools import product, combinations
 
 
 def min_union(M):
@@ -120,6 +118,7 @@ def compute(P, Gamma, dim=2):
         if column == "Partitions":
             continue
 
+        # todo improve
         union_pair_set = set()
         need_to_cover_list = list()
         for pair_list in qs_candidate[column]:
@@ -164,7 +163,9 @@ def compute(P, Gamma, dim=2):
     best_qs_value_dict = None
     for min_union_pair in min_union_pair_list:
         temp_candidate = qs_candidate.copy()
-        current_choice, current_sum_value, current_best_qs_value_dict = select_best_choice(min_union_pair, temp_candidate, columns_list, union_max)
+        current_choice, current_sum_value, current_best_qs_value_dict = select_best_choice(min_union_pair,
+                                                                                           temp_candidate, columns_list,
+                                                                                           union_max)
         if current_sum_value < min_sum_value:
             best_choice = current_choice
             min_sum_value = current_sum_value
@@ -181,12 +182,14 @@ def compute(P, Gamma, dim=2):
     for value, group in itertools.groupby(sorted_items, key=lambda x: x[1]):
         keys = sorted([item[0] for item in group])
         if len(keys) > 1:
-            str_list.append(frac_to_latex(value) + " \\times (" + " + ".join([ "\\rho_{" + str(int(key, dim) + 1) + "," + str(int(key, dim) + 1) + "}" for key in keys ]) + ")")
+            str_list.append(frac_to_latex(value) + " \\times (" + " + ".join(
+                ["\\rho_{" + str(int(key, dim) + 1) + "," + str(int(key, dim) + 1) + "}" for key in keys]) + ")")
         else:
             str_list.append(frac_to_latex(value) + " \\times " + " + ".join(
                 ["\\rho_{" + str(int(key, dim) + 1) + "," + str(int(key, dim) + 1) + "}" for key in keys]))
 
-    print(" + ".join([ "|\\rho_{" + str(int(item[0], dim) + 1) + "," + str(int(item[1], dim) + 1) + "}|" for item in P ]) + " \\le " + " + ".join(str_list))
+    print(" + ".join(["|\\rho_{" + str(int(item[0], dim) + 1) + "," + str(int(item[1], dim) + 1) + "}|" for item in
+                      P]) + " \\le " + " + ".join(str_list))
 
 
 # def select_n_sub(candidate, current_list, index, current, n, result_list):
@@ -206,32 +209,51 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
         # 应用函数，删除不在限定范围内的值
         qs_candidate[col] = qs_candidate[col].apply(lambda x: [i for i in x if i in r])
 
+    column_dict = dict()
+    for temp_index in range(len(qs_candidate.columns)):
+        key1, key2 = qs_candidate.columns[temp_index].split('.')
+        if key1 not in column_dict:
+            column_dict[key1] = list()
+        if key2 not in column_dict:
+            column_dict[key2] = list()
+        column_dict[key1].append(temp_index)
+        column_dict[key2].append(temp_index)
+
     best_choices_list = list()
+    best_choice_limit = 30
     for a in range(len(qs_candidate.values)):
-        choices = list(product(*qs_candidate.values[a]))
         current_best_choices = list()
-        min_value = float('inf')
-        max_count = 0
-        for choice in choices:
-            choice_list = list(choice)
-            qs_result = handle_choice(choice_list)
+        while len(current_best_choices) < best_choice_limit:
+            select_no_change_list = select_no_change(column_dict, union_max)
+            current_qs_candidate = copy.deepcopy(qs_candidate.values[a])
+            for temp_index in range(len(current_qs_candidate)):
+                if temp_index in select_no_change_list:
+                    current_qs_candidate[temp_index] = [qs_candidate.columns[temp_index]]
+                else:
+                    current_qs_candidate[temp_index].remove(qs_candidate.columns[temp_index])
+            choices = product(*current_qs_candidate)
 
-            condition = True
-            for key, value in union_max.items():
-                if key in qs_result and value < qs_result[key]:
-                    condition = False
-                    break
+            min_value = float('inf')
+            max_count = 0
+            best_choice_limit = 30
+            for choice in choices:
+                choice_list = list(choice)
+                qs_result = handle_choice(choice_list)
 
-            if condition:
                 value = max(qs_result.values())
                 count = len(qs_result.keys())
-                if (value < min_value and count > max_count) or (count > max_count and value == min_value) or (value < min_value and count == max_count):
+                if (value < min_value and count > max_count) or (count > max_count and value == min_value) or (
+                        value < min_value and count == max_count):
                     current_best_choices.clear()
                     current_best_choices.append(choice_list)
                     min_value = value
                     max_count = count
                 elif value == min_value and count == max_count:
                     current_best_choices.append(choice_list)
+                    if len(current_best_choices) == best_choice_limit:
+                        break
+            if len(current_best_choices) == best_choice_limit:
+                break
         best_choices_list.append(current_best_choices)
 
     # select 10 choice randomly, find the best one
@@ -261,6 +283,12 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
     return result_choice, min_sum_value, best_qs_value_dict
 
 
+def select_no_change(column_dict, union_max):
+    # use dancing links
+
+    pass
+
+
 def handle_choice(choice_list):
     result_dict = dict()
     for pair in choice_list:
@@ -268,6 +296,7 @@ def handle_choice(choice_list):
         result_dict[state_1] = result_dict.get(state_1, 0) + Fraction(1, 2)
         result_dict[state_2] = result_dict.get(state_2, 0) + Fraction(1, 2)
     return result_dict
+
 
 def merge_dicts(d1, d2):
     result = {}

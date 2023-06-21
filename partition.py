@@ -25,12 +25,16 @@ def checkout_partition(partition_type_list, partite_number):
 
 class Partition(object):
     def __init__(self, partition_type_list, partite_number):
-        assert checkout_partition(partition_type_list, partite_number)
+        # assert checkout_partition(partition_type_list, partite_number)
         self.partition_by_list = format_partition(partition_type_list)
         str_list = list()
+        item_len_list = list()
         for part in self.partition_by_list:
             str_list.append(".".join([str(item) for item in part]))
+            item_len_list.append(len(part))
         self.partition_by_str = "|".join(str_list)
+        item_len_list = sorted(item_len_list)
+        self.type = "|".join([str(item) for item in item_len_list])
 
         self.partition_by_set = [set(part) for part in self.partition_by_list]
 
