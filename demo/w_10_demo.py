@@ -2,43 +2,8 @@ import copy
 import itertools
 
 from partition import Partition
-from partition_tools import generate_k_stretchable_partitions, max_partition_set
+from partition_tools import all_partition
 from tools import compute
-
-
-def all_partition(elements):
-    partition_list = list()
-    partition_list.append([elements])
-    if len(elements) == 1:
-        return partition_list
-
-    for count in range(0, len(elements) - 1):
-        for item in itertools.combinations(elements[1:], count):
-            the_part = list(item) + [elements[0]]
-            the_last = copy.deepcopy(set(elements))
-            the_last.difference_update(the_part)
-            partition_list.extend([partition + [the_part] for partition in all_partition(list(the_last))])
-
-    return partition_list
-
-
-def max_type(key_set):
-    remove_set = set()
-    for key in key_set:
-        item_list = [int(x) for x in key.split('|')]
-        for i in range(len(item_list)):
-            for j in range(i + 1, len(item_list)):
-                new_item_list = item_list[0:i] + [item_list[i] + item_list[j]] + item_list[i+1:j] + item_list[j+1:]
-                new_item_list = sorted(new_item_list)
-                new_type = "|".join([str(item) for item in new_item_list])
-                if new_type in key_set:
-                    remove_set.add(key)
-                    break
-            if key in remove_set:
-                break
-
-    for key in remove_set:
-        key_set.remove(key)
 
 
 if __name__ == "__main__":

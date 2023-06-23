@@ -3,41 +3,16 @@ def format_partition(partition_list):
     return sorted(new_partition_list, key=lambda part: part[0])
 
 
-def checkout_partition(partition_type_list, partite_number):
-    number_count = 0
-    for part in partition_type_list:
-        if len(part) == 0:
-            return False
-        else:
-            number_count += len(part)
-    if number_count != partite_number:
-        return False
-
-    for number in range(1, partite_number + 1):
-        is_contain = False
-        for part in partition_type_list:
-            if number in part:
-                is_contain = True
-        if not is_contain:
-            return False
-    return True
-
-
 class Partition(object):
-    def __init__(self, partition_type_list, partite_number):
-        # assert checkout_partition(partition_type_list, partite_number)
-        self.partition_by_list = format_partition(partition_type_list)
+    def __init__(self, list_type_of_partition):
+        self.partition_by_list = format_partition(list_type_of_partition)
         str_list = list()
         item_len_list = list()
         for part in self.partition_by_list:
             str_list.append(".".join([str(item) for item in part]))
             item_len_list.append(len(part))
         self.partition_by_str = "|".join(str_list)
-        item_len_list = sorted(item_len_list)
-        self.type = "|".join([str(item) for item in item_len_list])
-
         self.partition_by_set = [set(part) for part in self.partition_by_list]
-
         self.partitionable = len(self.partition_by_list)
         self.producible = max([len(part) for part in self.partition_by_list])
         self.stretchable = self.producible - self.partitionable

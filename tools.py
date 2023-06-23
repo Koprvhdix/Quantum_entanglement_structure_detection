@@ -22,12 +22,32 @@ def min_union(M):
     return combination_list
 
 
-def get_quantum_state_of_p(P):
-    p_state_set = set()
-    for quantum_pair in P:
-        p_state_set.add(quantum_pair[0])
-        p_state_set.add(quantum_pair[1])
-    return p_state_set
+def min_union_greedy(M):
+    return_union_list, result_list = recursion_generate_min_union(M)
+    return return_union_list
+
+
+def recursion_generate_min_union(M):
+    if len(M) == 1:
+        return M, M
+    union_list_1, result_1 = recursion_generate_min_union(M[0:len(M) / 2])
+    union_list_2, result_2 = recursion_generate_min_union(M[len(M) / 2:])
+    return_union_list = list()
+    result_list = list()
+    min_union_count = float('inf')
+    for index_1 in range(len(union_list_1)):
+        for index_2 in range(len(union_list_2)):
+            union_list = set(union_list_1[index_1]).union(union_list_1[index_1])
+            if len(union_list) < min_union_count:
+                min_union_count = len(union_list)
+                return_union_list.clear()
+                return_union_list.append(union_list)
+                result_list.clear()
+                result_list.append(union_list_1[index_1] + union_list_1[index_1])
+            elif len(union_list) == min_union_count:
+                return_union_list.append(union_list)
+                result_list.append(union_list_1[index_1] + union_list_1[index_1])
+    return return_union_list, result_list
 
 
 def m_n_part(m, n, part):
@@ -41,19 +61,6 @@ def m_n_part(m, n, part):
     return result
 
 
-def phi_quantum_list(quantum_list, N):
-    index_set = set()
-    for i in range(N):
-        is_same = True
-        for quantum in quantum_list:
-            if quantum[i] != quantum_list[0][i]:
-                is_same = False
-                break
-        if is_same:
-            index_set.add(i)
-    return index_set
-
-
 def frac_to_latex(frac):
     if frac.denominator == 1:
         return str(frac.numerator)
@@ -61,7 +68,20 @@ def frac_to_latex(frac):
         return r'\frac{{{}}}{{{}}}'.format(frac.numerator, frac.denominator)
 
 
-def compute(P, Gamma, dim=2):
+def greedy_pair_set(union_pair_set, need_to_cover_list):
+    pair_set_cover_dict = dict()
+    for pair_set in union_pair_set:
+        for index in range(len(need_to_cover_list)):
+            if pair_set in need_to_cover_list[index]:
+                if pair_set not in pair_set_cover_dict:
+                    pair_set_cover_dict[pair_set] = set()
+                pair_set_cover_dict[pair_set].add(index)
+
+def recursion_mini_cover_list(pair_set_cover_dict, need_cover_set, mini_count):
+    pass
+
+
+def compute(P, Gamma, greedy=False, dim=2):
     qs_candidate_list = list()
 
     # compute the candidate matrix
@@ -118,7 +138,6 @@ def compute(P, Gamma, dim=2):
         if column == "Partitions":
             continue
 
-        # todo improve
         union_pair_set = set()
         need_to_cover_list = list()
         for pair_list in qs_candidate[column]:
@@ -130,34 +149,33 @@ def compute(P, Gamma, dim=2):
                 need_to_cover_list.append(pair_set)
 
         if union_pair_set != set():
-            for pair_count in range(1, len(union_pair_set)):
-                current_result = list(combinations(list(union_pair_set), pair_count))
-                # select_n_sub(list(union_pair_set), list(), 0, 0, pair_count, current_result)
-                # 检查是否能盖住
-                current_min_pair_list = list()
-                for pair_set in current_result:
-                    is_cover = True
-                    for lst in need_to_cover_list:
-                        if not any(item in pair_set for item in lst):
-                            is_cover = False
-                            break
-                    # cover_index = set()
-                    # for pair in pair_set:
-                    #     for i in range(len(need_to_cover_list)):
-                    #         if pair in need_to_cover_list[i]:
-                    #             cover_index.add(i)
-                    # if len(cover_index) == len(need_to_cover_list):
-                    if is_cover:
-                        current_min_pair_list.append(list(column_pair_dict[column]) + list(pair_set))
-                if len(current_min_pair_list) > 0:
-                    union_pair_list.append(current_min_pair_list)
-                    columns_list.append(column)
-                    break
+            # if greedy:
+            #     pass
+            # else:
+            #     for pair_count in range(1, len(union_pair_set)):
+            #         current_min_pair_list = list()
+            #         current_result = combinations(list(union_pair_set), pair_count)
+            #         # 检查是否能盖住
+            #         for pair_set in current_result:
+            #             is_cover = True
+            #             for lst in need_to_cover_list:
+            #                 if not any(item in pair_set for item in lst):
+            #                     is_cover = False
+            #                     break
+            #             if is_cover:
+            #                 current_min_pair_list.append(list(column_pair_dict[column]) + list(pair_set))
+            #         if len(current_min_pair_list) > 0:
+            #             union_pair_list.append(current_min_pair_list)
+            #             columns_list.append(column)
+            #             break
         else:
             union_pair_list.append([list(column_pair_dict[column])])
             columns_list.append(column)
 
-    min_union_pair_list = min_union(union_pair_list)
+    if greedy:
+        min_union_pair_list = min_union_greedy(union_pair_list)
+    else:
+        min_union_pair_list = min_union(union_pair_list)
     min_sum_value = float('inf')
     best_choice = None
     best_qs_value_dict = None
@@ -165,7 +183,7 @@ def compute(P, Gamma, dim=2):
         temp_candidate = qs_candidate.copy()
         current_choice, current_sum_value, current_best_qs_value_dict = select_best_choice(min_union_pair,
                                                                                            temp_candidate, columns_list,
-                                                                                           union_max)
+                                                                                           union_max, greedy)
         if current_sum_value < min_sum_value:
             best_choice = current_choice
             min_sum_value = current_sum_value
@@ -192,15 +210,7 @@ def compute(P, Gamma, dim=2):
                       P]) + " \\le " + " + ".join(str_list))
 
 
-# def select_n_sub(candidate, current_list, index, current, n, result_list):
-#     if current == n:
-#         result_list.append(current_list)
-#         return
-#     for temp_index in range(index, len(candidate)):
-#         select_n_sub(candidate, current_list + [candidate[temp_index]], temp_index + 1, current + 1, n, result_list)
-
-
-def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
+def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max, greedy=False):
     partition_list = qs_candidate['Partitions']
     qs_candidate = qs_candidate.drop('Partitions', axis=1)
     for col in qs_candidate.columns:
@@ -223,11 +233,11 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
     best_choice_limit = 30
     for a in range(len(qs_candidate.values)):
         current_best_choices = list()
-        while len(current_best_choices) < best_choice_limit:
-            select_no_change_list = select_no_change(column_dict, union_max)
+        no_change_list = no_change_candidate(column_dict, union_max, greedy)
+        for no_change in no_change_list:
             current_qs_candidate = copy.deepcopy(qs_candidate.values[a])
             for temp_index in range(len(current_qs_candidate)):
-                if temp_index in select_no_change_list:
+                if temp_index in no_change:
                     current_qs_candidate[temp_index] = [qs_candidate.columns[temp_index]]
                 else:
                     current_qs_candidate[temp_index].remove(qs_candidate.columns[temp_index])
@@ -235,7 +245,6 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
 
             min_value = float('inf')
             max_count = 0
-            best_choice_limit = 30
             for choice in choices:
                 choice_list = list(choice)
                 qs_result = handle_choice(choice_list)
@@ -252,9 +261,7 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
                     current_best_choices.append(choice_list)
                     if len(current_best_choices) == best_choice_limit:
                         break
-            if len(current_best_choices) == best_choice_limit:
-                break
-        best_choices_list.append(current_best_choices)
+            best_choices_list.append(current_best_choices)
 
     # select 10 choice randomly, find the best one
     result_choice = None
@@ -283,10 +290,14 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max):
     return result_choice, min_sum_value, best_qs_value_dict
 
 
-def select_no_change(column_dict, union_max):
+def no_change_candidate(column_dict, union_max, greedy):
+    union_max_count = dict()
+    for key in union_max:
+        union_max_count[key] = union_max(key) / Fraction(1, 2)
+
     # use dancing links
 
-    pass
+    return list()
 
 
 def handle_choice(choice_list):
