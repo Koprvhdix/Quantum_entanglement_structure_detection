@@ -6,6 +6,8 @@ from itertools import product, combinations
 
 import pandas as pd
 
+from dancing_links import DancingLinks
+
 
 def min_union(M):
     combination_list = list()
@@ -68,17 +70,33 @@ def frac_to_latex(frac):
         return r'\frac{{{}}}{{{}}}'.format(frac.numerator, frac.denominator)
 
 
-def greedy_pair_set(union_pair_set, need_to_cover_list):
-    pair_set_cover_dict = dict()
-    for pair_set in union_pair_set:
-        for index in range(len(need_to_cover_list)):
-            if pair_set in need_to_cover_list[index]:
-                if pair_set not in pair_set_cover_dict:
-                    pair_set_cover_dict[pair_set] = set()
-                pair_set_cover_dict[pair_set].add(index)
-
 def recursion_mini_cover_list(pair_set_cover_dict, need_cover_set, mini_count):
-    pass
+    cover_list = list()
+    sorted_keys_dict = dict()
+    for key in pair_set_cover_dict:
+        if pair_set_cover_dict[key] & need_cover_set == need_cover_set:
+            cover_list.append([key])
+        elif len(pair_set_cover_dict[key] & need_cover_set) > 0:
+            sorted_keys_dict[key] = len(pair_set_cover_dict[key] & need_cover_set)
+
+    if len(cover_list) > 0 or mini_count == 1 or len(need_cover_set) > sum(sorted_keys_dict.values()):
+        return cover_list
+
+    sorted_keys = [k for k, v in sorted(sorted_keys_dict.items(), key=lambda item: item[1], reverse=True)]
+    temp_pair_set_cover_dict = copy.deepcopy(pair_set_cover_dict)
+    for key in sorted_keys:
+        next_need_cover_set = need_cover_set - pair_set_cover_dict[key]
+        del temp_pair_set_cover_dict[key]
+        current_cover_list = recursion_mini_cover_list(temp_pair_set_cover_dict, next_need_cover_set, mini_count - 1)
+        if len(current_cover_list) > 0:
+            if len(current_cover_list[0]) + 1 < mini_count:
+                mini_count = len(current_cover_list[0]) + 1
+                cover_list.clear()
+                cover_list.extend([cover_item + [key] for cover_item in current_cover_list])
+            elif len(current_cover_list[0]) + 1 == mini_count:
+                cover_list.extend([cover_item + [key] for cover_item in current_cover_list])
+
+    return cover_list
 
 
 def compute(P, Gamma, greedy=False, dim=2):
@@ -144,11 +162,21 @@ def compute(P, Gamma, greedy=False, dim=2):
             pair_set = set(pair_list)
             if column in pair_set:
                 pair_set.remove(column)
-            if pair_set & column_pair_dict[column] == set():
+            if len(pair_set & column_pair_dict[column]) == 0:
                 union_pair_set = union_pair_set.union(pair_set)
                 need_to_cover_list.append(pair_set)
 
-        if union_pair_set != set():
+        if len(union_pair_set) != 0:
+            pair_set_cover_dict = dict()
+            for pair in union_pair_set:
+                pair_set_cover_dict[pair] = set()
+                for index in range(len(need_to_cover_list)):
+                    if pair in need_to_cover_list[index]:
+                        pair_set_cover_dict[pair].add(index)
+
+            cover_list = recursion_mini_cover_list(pair_set_cover_dict, set(range(len(need_to_cover_list))), float('inf'))
+            union_pair_list.append([list(column_pair_dict[column]) + cover_item for cover_item in cover_list])
+            columns_list.append(column)
             # if greedy:
             #     pass
             # else:
@@ -219,25 +247,20 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max, gr
         # 应用函数，删除不在限定范围内的值
         qs_candidate[col] = qs_candidate[col].apply(lambda x: [i for i in x if i in r])
 
-    column_dict = dict()
+    column_list = list()
     for temp_index in range(len(qs_candidate.columns)):
         key1, key2 = qs_candidate.columns[temp_index].split('.')
-        if key1 not in column_dict:
-            column_dict[key1] = list()
-        if key2 not in column_dict:
-            column_dict[key2] = list()
-        column_dict[key1].append(temp_index)
-        column_dict[key2].append(temp_index)
+        column_list.append([key1, key2])
 
     best_choices_list = list()
     best_choice_limit = 30
+    no_change_list = no_change_candidate(column_list, union_max, greedy)
     for a in range(len(qs_candidate.values)):
         current_best_choices = list()
-        no_change_list = no_change_candidate(column_dict, union_max, greedy)
         for no_change in no_change_list:
             current_qs_candidate = copy.deepcopy(qs_candidate.values[a])
             for temp_index in range(len(current_qs_candidate)):
-                if temp_index in no_change:
+                if qs_candidate.columns[temp_index] in no_change:
                     current_qs_candidate[temp_index] = [qs_candidate.columns[temp_index]]
                 else:
                     current_qs_candidate[temp_index].remove(qs_candidate.columns[temp_index])
@@ -261,7 +284,7 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max, gr
                     current_best_choices.append(choice_list)
                     if len(current_best_choices) == best_choice_limit:
                         break
-            best_choices_list.append(current_best_choices)
+        best_choices_list.append(current_best_choices)
 
     # select 10 choice randomly, find the best one
     result_choice = None
@@ -290,14 +313,51 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max, gr
     return result_choice, min_sum_value, best_qs_value_dict
 
 
-def no_change_candidate(column_dict, union_max, greedy):
+def no_change_candidate(column_list, union_max, greedy):
     union_max_count = dict()
     for key in union_max:
-        union_max_count[key] = union_max(key) / Fraction(1, 2)
+        union_max_count[key] = union_max[key] / Fraction(1, 2)
 
+    target_union_max_count_list = list()
     # use dancing links
+    if sum(union_max_count.values()) % 2 != 0:
+        for key in union_max_count:
+            temp_union_max_count = copy.deepcopy(union_max_count)
+            temp_union_max_count[key] -= 1
+            target_union_max_count_list.append(temp_union_max_count)
+    else:
+        target_union_max_count_list.append(union_max_count)
 
-    return list()
+    no_change_list = list()
+    for temp_union_max_count in target_union_max_count_list:
+        current_index = 0
+        for key in sorted(temp_union_max_count.keys()):
+            count = int(temp_union_max_count[key])
+            temp_union_max_count[key] = [current_index, current_index + count]
+            current_index = current_index + count
+        dlx = DancingLinks(current_index, max_solution=30)
+        for column in column_list:
+            row_list = list()
+            for index_1 in range(temp_union_max_count[column[0]][0], temp_union_max_count[column[0]][1]):
+                for index_2 in range(temp_union_max_count[column[1]][0], temp_union_max_count[column[1]][1]):
+                    row_list.append([index_1, index_2])
+            dlx.append_same_row(row_list)
+
+        for solution in dlx.search():
+            temp_no_change_item = list()
+            for key_list in solution:
+                key_item = list()
+                for key in sorted(temp_union_max_count.keys()):
+                    if temp_union_max_count[key][0] <= key_list[len(key_item)] < temp_union_max_count[key][1]:
+                        key_item.append(key)
+                    if len(key_item) == len(key_list):
+                        break
+                temp_no_change_item.append('.'.join(key_item))
+            no_change_list.append(temp_no_change_item)
+            if len(no_change_list) >= 30:
+                break
+
+    return no_change_list
 
 
 def handle_choice(choice_list):
