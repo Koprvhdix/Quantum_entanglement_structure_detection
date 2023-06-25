@@ -2,11 +2,34 @@ import copy
 import itertools
 import random
 from fractions import Fraction
-from itertools import product, combinations
+from itertools import product
 
 import pandas as pd
 
 from dancing_links import DancingLinks
+from partition_tools import generate_k_stretchable_partitions, generate_k_producible_partitions, \
+    generate_k_partitionable_partitions
+
+
+def compute_all_stretchable(P, N):
+    for k in range(1 - N, N - 1):
+        print(k, "-str:")
+        compute(P, generate_k_stretchable_partitions(N, k))
+        print("----------------------------------------------------------------------")
+
+
+def compute_all_producible(P, N):
+    for k in range(1, N):
+        print(k, "-prod:")
+        compute(P, generate_k_producible_partitions(N, k))
+        print("----------------------------------------------------------------------")
+
+
+def compute_all_partitionable(P, N):
+    for k in range(N - 1, 1, -1):
+        print(k, "-part:")
+        compute(P, generate_k_partitionable_partitions(N, k))
+        print("----------------------------------------------------------------------")
 
 
 def min_union(M):
@@ -25,31 +48,40 @@ def min_union(M):
 
 
 def min_union_greedy(M):
-    return_union_list, result_list = recursion_generate_min_union(M)
-    return return_union_list
+    return list()
 
 
-def recursion_generate_min_union(M):
-    if len(M) == 1:
-        return M, M
-    union_list_1, result_1 = recursion_generate_min_union(M[0:len(M) / 2])
-    union_list_2, result_2 = recursion_generate_min_union(M[len(M) / 2:])
-    return_union_list = list()
+def recursion_generate_min_union(M, current_index, current_result, min_count):
     result_list = list()
-    min_union_count = float('inf')
-    for index_1 in range(len(union_list_1)):
-        for index_2 in range(len(union_list_2)):
-            union_list = set(union_list_1[index_1]).union(union_list_1[index_1])
-            if len(union_list) < min_union_count:
-                min_union_count = len(union_list)
-                return_union_list.clear()
-                return_union_list.append(union_list)
-                result_list.clear()
-                result_list.append(union_list_1[index_1] + union_list_1[index_1])
-            elif len(union_list) == min_union_count:
-                return_union_list.append(union_list)
-                result_list.append(union_list_1[index_1] + union_list_1[index_1])
-    return return_union_list, result_list
+    sorted_list = sorted(M[current_index], key=lambda m: len(set(m).union(current_result)))
+
+    if current_index + 1 == len(M):
+        for temp_result in sorted_list:
+            if len(set(temp_result).union(current_result)) <= min_count:
+                min_count = len(set(temp_result).union(current_result))
+                result_list.append([temp_result])
+            else:
+                break
+    else:
+        for temp_result in sorted_list:
+            if len(set(temp_result).union(current_result)) <= min_count:
+                recursion_result_list = recursion_generate_min_union(M, current_index + 1,
+                                                                     current_result.union(set(temp_result)), min_count)
+                if len(recursion_result_list) > 0:
+                    temp_recursion = set()
+                    for m in recursion_result_list[0]:
+                        temp_recursion = temp_recursion.union(set(m))
+
+                    if len(temp_recursion.union(current_result).union(temp_result)) < min_count:
+                        min_count = len(temp_recursion.union(current_result).union(temp_result))
+                        result_list.clear()
+                        result_list.extend(
+                            [[temp_result] + recursion_result for recursion_result in recursion_result_list])
+                    elif len(temp_recursion.union(current_result).union(temp_result)) == min_count:
+                        result_list.extend(
+                            [[temp_result] + recursion_result for recursion_result in recursion_result_list])
+
+    return result_list
 
 
 def m_n_part(m, n, part):
@@ -174,7 +206,8 @@ def compute(P, Gamma, greedy=False, dim=2):
                     if pair in need_to_cover_list[index]:
                         pair_set_cover_dict[pair].add(index)
 
-            cover_list = recursion_mini_cover_list(pair_set_cover_dict, set(range(len(need_to_cover_list))), float('inf'))
+            cover_list = recursion_mini_cover_list(pair_set_cover_dict, set(range(len(need_to_cover_list))),
+                                                   float('inf'))
             union_pair_list.append([list(column_pair_dict[column]) + cover_item for cover_item in cover_list])
             columns_list.append(column)
             # if greedy:
@@ -200,10 +233,12 @@ def compute(P, Gamma, greedy=False, dim=2):
             union_pair_list.append([list(column_pair_dict[column])])
             columns_list.append(column)
 
-    if greedy:
-        min_union_pair_list = min_union_greedy(union_pair_list)
-    else:
-        min_union_pair_list = min_union(union_pair_list)
+    min_union_pair_list = recursion_generate_min_union(union_pair_list, 0, set(), float('inf'))
+    # min_union_pair_list = min_union(union_pair_list)
+    # if greedy:
+    #     min_union_pair_list = min_union_greedy(union_pair_list)
+    # else:
+    #     min_union_pair_list = min_union(union_pair_list)
     min_sum_value = float('inf')
     best_choice = None
     best_qs_value_dict = None
@@ -247,23 +282,56 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max, gr
         # 应用函数，删除不在限定范围内的值
         qs_candidate[col] = qs_candidate[col].apply(lambda x: [i for i in x if i in r])
 
-    column_list = list()
-    for temp_index in range(len(qs_candidate.columns)):
-        key1, key2 = qs_candidate.columns[temp_index].split('.')
-        column_list.append([key1, key2])
-
     best_choices_list = list()
     best_choice_limit = 30
-    no_change_list = no_change_candidate(column_list, union_max, greedy)
     for a in range(len(qs_candidate.values)):
+        temp_union_max = union_max.copy()
+        no_change_column_list = list()
+        for temp_index in range(len(qs_candidate.values[a])):
+            if len(qs_candidate.values[a][temp_index]) == 1 and qs_candidate.columns[temp_index] in \
+                    qs_candidate.values[a][temp_index]:
+                key1, key2 = qs_candidate.columns[temp_index].split('.')
+                temp_union_max[key1] -= Fraction(1, 2)
+                temp_union_max[key2] -= Fraction(1, 2)
+
+        no_change_column_dict = dict()
+        for temp_index in range(len(qs_candidate.values[a])):
+            if len(qs_candidate.values[a][temp_index]) > 1:
+                key1, key2 = qs_candidate.columns[temp_index].split('.')
+                if key1 in temp_union_max and key2 in temp_union_max and temp_union_max[key1] > 0 and temp_union_max[key2] > 0:
+                    no_change_column_list.append([key1, key2])
+                    no_change_column_dict[key1] = no_change_column_dict.get(key1, 0) + 1
+                    no_change_column_dict[key2] = no_change_column_dict.get(key2, 0) + 1
+
+        remove_key_list = list()
+        for key in temp_union_max:
+            if temp_union_max[key] == 0 or key not in no_change_column_dict:
+                remove_key_list.append(key)
+            elif temp_union_max[key] > no_change_column_dict[key]:
+                temp_union_max[key] = no_change_column_dict[key]
+        for key in remove_key_list:
+            del temp_union_max[key]
+
+        current_qs_candidate_list = list()
+        if sum(temp_union_max.values()) > 0 and len(no_change_column_list) > 0:
+            no_change_list = no_change_candidate(no_change_column_list, temp_union_max, greedy)
+            if len(no_change_list) == 0:
+                current_qs_candidate_list.append(copy.deepcopy(qs_candidate.values[a]))
+            else:
+                for no_change in no_change_list:
+                    current_qs_candidate = copy.deepcopy(qs_candidate.values[a])
+                    for temp_index in range(len(current_qs_candidate)):
+                        if qs_candidate.columns[temp_index] in no_change:
+                            current_qs_candidate[temp_index] = [qs_candidate.columns[temp_index]]
+                        elif len(current_qs_candidate[temp_index]) > 1 and qs_candidate.columns[temp_index] in \
+                                current_qs_candidate[temp_index]:
+                            current_qs_candidate[temp_index].remove(qs_candidate.columns[temp_index])
+                    current_qs_candidate_list.append(current_qs_candidate)
+        else:
+            current_qs_candidate_list.append(copy.deepcopy(qs_candidate.values[a]))
+
         current_best_choices = list()
-        for no_change in no_change_list:
-            current_qs_candidate = copy.deepcopy(qs_candidate.values[a])
-            for temp_index in range(len(current_qs_candidate)):
-                if qs_candidate.columns[temp_index] in no_change:
-                    current_qs_candidate[temp_index] = [qs_candidate.columns[temp_index]]
-                else:
-                    current_qs_candidate[temp_index].remove(qs_candidate.columns[temp_index])
+        for current_qs_candidate in current_qs_candidate_list:
             choices = product(*current_qs_candidate)
 
             min_value = float('inf')

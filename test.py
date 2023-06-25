@@ -32,3 +32,6 @@
 #
 # if __name__ == "__main__":
 #     print(recursion_mini_cover_list({'0001.0010': {2, 4}, '0001.0100': {1, 2, 3}}, {1, 2, 3, 4}, float('inf')))
+
+def recursion_generate_min_union(M, current_index, min_count):
+    pass

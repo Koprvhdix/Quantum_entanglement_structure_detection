@@ -1,9 +1,6 @@
-import copy
 import itertools
 
-from partition import Partition
-from partition_tools import all_partition, generate_k_stretchable_partitions
-from tools import compute
+from tools import compute_all_stretchable, compute_all_producible, compute_all_partitionable
 
 if __name__ == "__main__":
     N = 10
@@ -12,5 +9,6 @@ if __name__ == "__main__":
     P = [list(item) for item in itertools.combinations(quantum_state, 2)]
     print(P)
 
-    Gamma_list = generate_k_stretchable_partitions(N, -1)
-    compute(P, Gamma_list)
+    compute_all_stretchable(P, N)
+    compute_all_producible(P, N)
+    compute_all_partitionable(P, N)
