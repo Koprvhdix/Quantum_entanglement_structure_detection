@@ -1,5 +1,6 @@
 import copy
 import itertools
+import logging
 import random
 from fractions import Fraction
 from itertools import product
@@ -10,45 +11,28 @@ from dancing_links import DancingLinks
 from partition_tools import generate_k_stretchable_partitions, generate_k_producible_partitions, \
     generate_k_partitionable_partitions
 
+logging.basicConfig(filename='app.log', filemode='a', format='%(message)s', level=logging.INFO)
+
 
 def compute_all_stretchable(P, N):
     for k in range(1 - N, N - 1):
-        print(k, "-str:")
+        logging.info(str(N) + "partite" + str(k) + "-str:")
         compute(P, generate_k_stretchable_partitions(N, k))
-        print("----------------------------------------------------------------------")
+        logging.info("----------------------------------------------------------------------")
 
 
 def compute_all_producible(P, N):
     for k in range(1, N):
-        print(k, "-prod:")
+        logging.info(str(N) + "partite" + str(k) + "-prod:")
         compute(P, generate_k_producible_partitions(N, k))
-        print("----------------------------------------------------------------------")
+        logging.info("----------------------------------------------------------------------")
 
 
 def compute_all_partitionable(P, N):
     for k in range(N - 1, 1, -1):
-        print(k, "-part:")
+        logging.info(str(N) + "partite" + str(k) + "-part:")
         compute(P, generate_k_partitionable_partitions(N, k))
-        print("----------------------------------------------------------------------")
-
-
-def min_union(M):
-    combination_list = list()
-    min_union_len = float('inf')
-    for combination in product(*M):
-        new_combination = [[elem for s in row for elem in s.split('.')] for row in combination]
-        union_set = set().union(*new_combination)
-        if len(union_set) < min_union_len:
-            min_union_len = len(union_set)
-            combination_list.clear()
-            combination_list.append(combination)
-        elif len(union_set) == min_union_len:
-            combination_list.append(combination)
-    return combination_list
-
-
-def min_union_greedy(M):
-    return list()
+        logging.info("----------------------------------------------------------------------")
 
 
 def recursion_generate_min_union(M, current_index, current_result, min_count):
@@ -210,35 +194,11 @@ def compute(P, Gamma, greedy=False, dim=2):
                                                    float('inf'))
             union_pair_list.append([list(column_pair_dict[column]) + cover_item for cover_item in cover_list])
             columns_list.append(column)
-            # if greedy:
-            #     pass
-            # else:
-            #     for pair_count in range(1, len(union_pair_set)):
-            #         current_min_pair_list = list()
-            #         current_result = combinations(list(union_pair_set), pair_count)
-            #         # 检查是否能盖住
-            #         for pair_set in current_result:
-            #             is_cover = True
-            #             for lst in need_to_cover_list:
-            #                 if not any(item in pair_set for item in lst):
-            #                     is_cover = False
-            #                     break
-            #             if is_cover:
-            #                 current_min_pair_list.append(list(column_pair_dict[column]) + list(pair_set))
-            #         if len(current_min_pair_list) > 0:
-            #             union_pair_list.append(current_min_pair_list)
-            #             columns_list.append(column)
-            #             break
         else:
             union_pair_list.append([list(column_pair_dict[column])])
             columns_list.append(column)
 
     min_union_pair_list = recursion_generate_min_union(union_pair_list, 0, set(), float('inf'))
-    # min_union_pair_list = min_union(union_pair_list)
-    # if greedy:
-    #     min_union_pair_list = min_union_greedy(union_pair_list)
-    # else:
-    #     min_union_pair_list = min_union(union_pair_list)
     min_sum_value = float('inf')
     best_choice = None
     best_qs_value_dict = None
@@ -254,8 +214,8 @@ def compute(P, Gamma, greedy=False, dim=2):
 
     # latex best choice
     best_choice = pd.DataFrame(best_choice)
-    print(best_choice.to_csv())
-    print(min_sum_value)
+    logging.info(best_choice.to_csv())
+    logging.info(min_sum_value)
 
     str_list = list()
     sorted_items = sorted(best_qs_value_dict.items(), key=lambda x: x[1], reverse=True)
@@ -269,8 +229,9 @@ def compute(P, Gamma, greedy=False, dim=2):
             str_list.append(frac_to_latex(value) + " \\times " + " + ".join(
                 ["\\rho_{" + str(int(key, dim) + 1) + "," + str(int(key, dim) + 1) + "}" for key in keys]))
 
-    print(" + ".join(["|\\rho_{" + str(int(item[0], dim) + 1) + "," + str(int(item[1], dim) + 1) + "}|" for item in
-                      P]) + " \\le " + " + ".join(str_list))
+    logging.info(
+        " + ".join(["|\\rho_{" + str(int(item[0], dim) + 1) + "," + str(int(item[1], dim) + 1) + "}|" for item in
+                    P]) + " \\le " + " + ".join(str_list))
 
 
 def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max, greedy=False):
@@ -287,18 +248,23 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max, gr
     for a in range(len(qs_candidate.values)):
         temp_union_max = union_max.copy()
         no_change_column_list = list()
+
+        for key in temp_union_max:
+            temp_union_max[key] = int(temp_union_max[key] / Fraction(1, 2))
+
         for temp_index in range(len(qs_candidate.values[a])):
             if len(qs_candidate.values[a][temp_index]) == 1 and qs_candidate.columns[temp_index] in \
                     qs_candidate.values[a][temp_index]:
                 key1, key2 = qs_candidate.columns[temp_index].split('.')
-                temp_union_max[key1] -= Fraction(1, 2)
-                temp_union_max[key2] -= Fraction(1, 2)
+                temp_union_max[key1] -= 1
+                temp_union_max[key2] -= 1
 
         no_change_column_dict = dict()
         for temp_index in range(len(qs_candidate.values[a])):
             if len(qs_candidate.values[a][temp_index]) > 1:
                 key1, key2 = qs_candidate.columns[temp_index].split('.')
-                if key1 in temp_union_max and key2 in temp_union_max and temp_union_max[key1] > 0 and temp_union_max[key2] > 0:
+                if key1 in temp_union_max and key2 in temp_union_max and temp_union_max[key1] > 0 and temp_union_max[
+                    key2] > 0:
                     no_change_column_list.append([key1, key2])
                     no_change_column_dict[key1] = no_change_column_dict.get(key1, 0) + 1
                     no_change_column_dict[key2] = no_change_column_dict.get(key2, 0) + 1
@@ -312,12 +278,12 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max, gr
         for key in remove_key_list:
             del temp_union_max[key]
 
+        not_handled = True
         current_qs_candidate_list = list()
         if sum(temp_union_max.values()) > 0 and len(no_change_column_list) > 0:
             no_change_list = no_change_candidate(no_change_column_list, temp_union_max, greedy)
-            if len(no_change_list) == 0:
-                current_qs_candidate_list.append(copy.deepcopy(qs_candidate.values[a]))
-            else:
+            if len(no_change_list) > 0:
+                not_handled = False
                 for no_change in no_change_list:
                     current_qs_candidate = copy.deepcopy(qs_candidate.values[a])
                     for temp_index in range(len(current_qs_candidate)):
@@ -327,8 +293,14 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max, gr
                                 current_qs_candidate[temp_index]:
                             current_qs_candidate[temp_index].remove(qs_candidate.columns[temp_index])
                     current_qs_candidate_list.append(current_qs_candidate)
-        else:
-            current_qs_candidate_list.append(copy.deepcopy(qs_candidate.values[a]))
+
+        if not_handled:
+            current_qs_candidate = copy.deepcopy(qs_candidate.values[a])
+            for temp_index in range(len(current_qs_candidate)):
+                if len(current_qs_candidate[temp_index]) > 1 and qs_candidate.columns[temp_index] in \
+                        current_qs_candidate[temp_index]:
+                    current_qs_candidate[temp_index].remove(qs_candidate.columns[temp_index])
+            current_qs_candidate_list.append(current_qs_candidate)
 
         current_best_choices = list()
         for current_qs_candidate in current_qs_candidate_list:
@@ -381,18 +353,14 @@ def select_best_choice(min_union_pair, qs_candidate, columns_list, union_max, gr
     return result_choice, min_sum_value, best_qs_value_dict
 
 
-def no_change_candidate(column_list, union_max, greedy):
-    union_max_count = dict()
-    for key in union_max:
-        union_max_count[key] = union_max[key] / Fraction(1, 2)
-
+def no_change_candidate(column_list, union_max_count, greedy):
     target_union_max_count_list = list()
     # use dancing links
     if sum(union_max_count.values()) % 2 != 0:
         for key in union_max_count:
-            temp_union_max_count = copy.deepcopy(union_max_count)
-            temp_union_max_count[key] -= 1
-            target_union_max_count_list.append(temp_union_max_count)
+            current_union_max_count = copy.deepcopy(union_max_count)
+            current_union_max_count[key] -= 1
+            target_union_max_count_list.append(current_union_max_count)
     else:
         target_union_max_count_list.append(union_max_count)
 

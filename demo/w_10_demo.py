@@ -1,6 +1,7 @@
 import itertools
 
-from tools import compute_all_stretchable, compute_all_producible, compute_all_partitionable
+from partition_tools import generate_k_stretchable_partitions
+from tools import compute_all_stretchable, compute_all_producible, compute_all_partitionable, compute
 
 if __name__ == "__main__":
     N = 10
@@ -9,6 +10,8 @@ if __name__ == "__main__":
     P = [list(item) for item in itertools.combinations(quantum_state, 2)]
     print(P)
 
-    compute_all_stretchable(P, N)
+    # compute(P, generate_k_stretchable_partitions(N, 1))
+
+    # compute_all_stretchable(P, N)
     compute_all_producible(P, N)
     compute_all_partitionable(P, N)
