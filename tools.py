@@ -133,9 +133,11 @@ def compute(P, Gamma, greedy=False, dim=2):
     # select the only one choice
     qs_candidate = pd.DataFrame(qs_candidate_list)
     column_pair_dict = dict()
+    quantum_column_set = set()
     for column in qs_candidate.columns:
         if column == "Partitions":
             continue
+        quantum_column_set = quantum_column_set.union(set(column.split('.')))
         column_pair_set = set()
         for pair_list in qs_candidate[column]:
             if len(pair_list) == 1:
@@ -172,6 +174,7 @@ def compute(P, Gamma, greedy=False, dim=2):
         if column == "Partitions":
             continue
 
+        columns_list.append(column)
         union_pair_set = set()
         need_to_cover_list = list()
         for pair_list in qs_candidate[column]:
@@ -192,11 +195,24 @@ def compute(P, Gamma, greedy=False, dim=2):
 
             cover_list = recursion_mini_cover_list(pair_set_cover_dict, set(range(len(need_to_cover_list))),
                                                    float('inf'))
+            current_cover_list = [list(column_pair_dict[column]) + cover_item for cover_item in cover_list]
+            # todo remove
+            remove_index = list()
+            for index in range(len(current_cover_list)):
+                for item in current_cover_list[index]:
+                    item_0 = item.split('.')[0]
+                    item_1 = item.split('.')[1]
+                    if item_0 in quantum_column_set or item_1 in quantum_column_set:
+                        remove_index.append(index)
+
+            if len(remove_index) != len(current_cover_list):
+                for index in remove_index:
+                    current_cover_list.pop(index)
+
             union_pair_list.append([list(column_pair_dict[column]) + cover_item for cover_item in cover_list])
-            columns_list.append(column)
         else:
             union_pair_list.append([list(column_pair_dict[column])])
-            columns_list.append(column)
+
 
     min_union_pair_list = recursion_generate_min_union(union_pair_list, 0, set(), float('inf'))
     min_sum_value = float('inf')
