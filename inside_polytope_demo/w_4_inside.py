@@ -1,5 +1,6 @@
 from ML_PIC import ML_PIC
-from partition_tools import generate_k_partitionable_partitions
+from inside_polytope_demo.compute import compute_all_4_qubit
+from partition_tools import generate_k_partitionable_partitions, generate_k_producible_partitions
 
 if __name__ == "__main__":
     rho = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -19,11 +20,4 @@ if __name__ == "__main__":
            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
 
-    # partition_list = generate_k_partitionable_partitions(4, 3)
-    partition_list = generate_k_partitionable_partitions(4, 2)
-
-    current_class = ML_PIC(4, 600, rho, partition_list, 1)
-    current_class.train(1000)
-    current_class.sdp()
-
-    # Full Separability
+    compute_all_4_qubit(rho)

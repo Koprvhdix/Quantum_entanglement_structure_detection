@@ -72,8 +72,8 @@ class ML_PIC(object):
         pass
 
     def train(self, epoch):
-        weights = torch.randn(self.n_points * len(self.partition_list))
-        opti_list = [weights]
+        weights_normalized = torch.tensor([1 / (self.n_points * len(self.partition_list))] * (self.n_points * len(self.partition_list)))
+        opti_list = list()
         L_list = list()
         for index_point in range(self.n_points):
             point_index_list = list()
@@ -92,7 +92,6 @@ class ML_PIC(object):
         param = 1000
 
         for epoch in range(epoch):
-            weights_normalized = F.normalize(torch.abs(weights), p=1, dim=0)
             target = torch.zeros(2 ** self.N, 2 ** self.N, dtype=torch.complex128)
 
             sdp_torch_list = list()
@@ -133,9 +132,7 @@ class ML_PIC(object):
                 sdp_torch_list.append(point_sdp_torch_list)
 
             alpha = torch.flatten(target - self.white_noise)
-            cos_value = torch.norm(torch.matmul(self.beta.T, alpha)) / (self.beta_norm * torch.norm(alpha))
-            distance_loss = param * torch.norm(alpha) * torch.sqrt(1 - cos_value ** 2)
-            scalar = torch.norm(alpha) * cos_value / self.beta_norm
+            scalar = torch.norm(torch.matmul(self.beta.T, alpha)) / (self.beta_norm ** 2)
 
             target_loss = param * torch.norm(target - torch.tensor(self.rho, dtype=torch.complex128))
             real_distance = param * torch.norm(
@@ -143,7 +140,7 @@ class ML_PIC(object):
 
             if real_distance > self.r:
                 optimizer.zero_grad()
-                distance_loss.backward()
+                real_distance.backward()
                 optimizer.step()
                 print(
                     f'Epoch {epoch} distance: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
@@ -234,22 +231,4 @@ class ML_PIC(object):
         prob.add_constraint(rho_next == (p * self.rho + ((1 - p) / (2 ** self.N)) * np.eye(2 ** self.N)))
         prob.set_objective("max", p)
         prob.solve(solver="mosek", primals=True)
-
-        print("final", p.value)
-        # print(rho_next.value)
-        return rho_next.value
-
-
-if __name__ == "__main__":
-    rho = np.zeros((32, 32))
-
-    indices = [0, 15, 19, 28]
-    for index in indices:
-        for index2 in indices:
-            rho[index, index2] = 0.25
-
-    partition_2_prod = generate_k_partitionable_partitions(5, 4)
-    # print(bubble_sort_steps([element for sublist in partition_2_prod[0].partition_by_list for element in sublist]))
-    current_class = ML_PIC(5, 100, rho, partition_2_prod, 1)
-    current_class.train(20000)
-    current_class.sdp()
+        return p.value
