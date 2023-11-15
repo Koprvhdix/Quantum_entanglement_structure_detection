@@ -146,30 +146,23 @@ def compute(P, Gamma, greedy=False, dim=2):
                 column_pair_set.add(pair_list[0] if column == pair_list[1] else pair_list[1])
         column_pair_dict[column] = column_pair_set
 
-    # 计算 P 的系数
-    union_max = dict()
+    # compute the value of quantum states in P
+    union_max_P = dict()
     for index, line in qs_candidate.iterrows():
         union_add = dict()
         for column in qs_candidate.columns:
-            if column == "Partitions":
-                continue
-            if len(line[column]) == 1 and line[column][0] == column:
+            # only change to itself
+            if column != "Partitions" and len(line[column]) == 1 and line[column][0] == column:
                 quantum = column.split(".")
-                if quantum[0] not in union_add:
-                    union_add[quantum[0]] = 0
-                if quantum[1] not in union_add:
-                    union_add[quantum[1]] = 0
-                union_add[quantum[0]] += Fraction(1, 2)
-                union_add[quantum[1]] += Fraction(1, 2)
+                union_add[quantum[0]] = union_add.get(quantum[0], 0) +  Fraction(1, 2)
+                union_add[quantum[1]] = union_add.get(quantum[1], 0) + Fraction(1, 2)
         for key in union_add:
-            if key not in union_max:
-                union_max[key] = 0
-            if union_max[key] < union_add[key]:
-                union_max[key] = union_add[key]
+            if union_max_P.get(key, 0) < union_add[key]:
+                union_max_P[key] = union_add[key]
 
     union_pair_list = list()
     columns_list = list()
-    # 选取最小集合
+    # select the minimal set of columns
     for column in qs_candidate.columns:
         if column == "Partitions":
             continue
@@ -222,7 +215,7 @@ def compute(P, Gamma, greedy=False, dim=2):
         temp_candidate = qs_candidate.copy()
         current_choice, current_sum_value, current_best_qs_value_dict = select_best_choice(min_union_pair,
                                                                                            temp_candidate, columns_list,
-                                                                                           union_max, greedy)
+                                                                                           union_max_P, greedy)
         if current_sum_value < min_sum_value:
             best_choice = current_choice
             min_sum_value = current_sum_value
