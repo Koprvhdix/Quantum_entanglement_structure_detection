@@ -24,7 +24,7 @@ def swap_chars(s, i, j):
     return ''.join(lst)
 
 
-class ML_PIC(object):
+class GD_SDP(object):
     def __init__(self, N, n_points, rho, partition_list, r, lr=0.01):
         self.N = N
         self.n_points = n_points

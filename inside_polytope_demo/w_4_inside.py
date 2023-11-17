@@ -1,4 +1,4 @@
-from ML_PIC import ML_PIC
+from GD_SDP import GD_SDP
 from inside_polytope_demo.compute import compute_all_4_qubit
 from partition_tools import generate_k_partitionable_partitions, generate_k_producible_partitions
 

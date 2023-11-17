@@ -1,4 +1,4 @@
-from ML_PIC import ML_PIC
+from GD_SDP import GD_SDP
 from partition_tools import generate_k_partitionable_partitions, generate_k_producible_partitions
 
 import numpy as np
@@ -34,19 +34,19 @@ def generate_dicke_state(n, k):
 
 def compute_all_4_qubit(rho):
     partition_3_part = generate_k_partitionable_partitions(4, 3)
-    current_class = ML_PIC(4, 300, rho, partition_3_part, 1)
+    current_class = GD_SDP(4, 300, rho, partition_3_part, 1)
     current_class.train(400)
     p_value = current_class.sdp()
     print("3 part:", p_value)
 
     partition_list = generate_k_producible_partitions(4, 2)
-    current_class = ML_PIC(4, 600, rho, partition_list, 1)
+    current_class = GD_SDP(4, 600, rho, partition_list, 1)
     current_class.train(400)
     p_value = current_class.sdp()
     print("2 prod:", p_value)
 
     partition_list = generate_k_partitionable_partitions(4, 2)
-    current_class = ML_PIC(4, 300, rho, partition_list, 1)
+    current_class = GD_SDP(4, 300, rho, partition_list, 1)
     current_class.train(400)
     p_value = current_class.sdp()
     print("2 part:", p_value)
