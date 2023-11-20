@@ -1,6 +1,6 @@
 from GD_SDP import GD_SDP
 from inside_polytope_demo.compute import compute_all_4_qubit
-from partition_tools import generate_k_partitionable_partitions, generate_k_producible_partitions
+from partition_tools import generate_k_partitionable_partitions
 
 if __name__ == "__main__":
     rho = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -20,4 +20,11 @@ if __name__ == "__main__":
            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
 
-    compute_all_4_qubit(rho)
+    # compute_all_4_qubit(rho)
+
+    print("----------- 2 part -------------")
+    partition_2_part = generate_k_partitionable_partitions(4, 2)
+    current_class = GD_SDP(4, 300, rho, partition_2_part, 1)
+    current_class.train(2000)
+    p_value_2_part = current_class.sdp()
+    print("2 part:", p_value_2_part)

@@ -6,10 +6,10 @@ from partition_tools import generate_k_partitionable_partitions
 if __name__ == "__main__":
     rho = np.zeros((64, 64))
 
-    indices = [0, 63]
+    indices = [1, 2, 4, 8, 16, 32]
     for index in indices:
         for index2 in indices:
-            rho[index, index2] = 0.5
+            rho[index, index2] = 1/6
 
     print("----------- full sep -------------")
     partition_6_part = generate_k_partitionable_partitions(6, 6)

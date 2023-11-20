@@ -3,9 +3,6 @@ from collections import deque
 import numpy as np
 import picos as pic
 import torch
-import torch.nn.functional as F
-
-from partition_tools import generate_k_partitionable_partitions
 
 
 def bubble_sort_steps(nums):
@@ -68,11 +65,9 @@ class GD_SDP(object):
 
         self.ml_queue = deque(maxlen=5)
 
-    def full_sep(self):
-        pass
-
     def train(self, epoch):
-        weights_normalized = torch.tensor([1 / (self.n_points * len(self.partition_list))] * (self.n_points * len(self.partition_list)))
+        weights_normalized = torch.tensor(
+            [1 / (self.n_points * len(self.partition_list))] * (self.n_points * len(self.partition_list)))
         opti_list = list()
         L_list = list()
         for index_point in range(self.n_points):
@@ -134,9 +129,15 @@ class GD_SDP(object):
             alpha = torch.flatten(target - self.white_noise)
             scalar = torch.norm(torch.matmul(self.beta.T, alpha)) / (self.beta_norm ** 2)
 
-            target_loss = param * torch.norm(target - torch.tensor(self.rho, dtype=torch.complex128))
-            real_distance = param * torch.norm(
-                target - (scalar * torch.tensor(self.rho, dtype=torch.complex128) + (1 - scalar) * self.white_noise))
+            matrix_1 = target - torch.tensor(self.rho, dtype=torch.complex128)
+            target_loss = param * torch.abs(torch.sqrt(torch.trace(torch.matmul(matrix_1.conj().t(), matrix_1))))
+            # target_loss = param * torch.norm(target - torch.tensor(self.rho, dtype=torch.complex128))
+
+            matrix_2 = target - (
+                        scalar * torch.tensor(self.rho, dtype=torch.complex128) + (1 - scalar) * self.white_noise)
+            real_distance = param * torch.abs(torch.sqrt(torch.trace(torch.matmul(matrix_2.conj().t(), matrix_2))))
+            # real_distance = param * torch.norm(
+            #     target - (scalar * torch.tensor(self.rho, dtype=torch.complex128) + (1 - scalar) * self.white_noise))
 
             if real_distance > self.r:
                 optimizer.zero_grad()
