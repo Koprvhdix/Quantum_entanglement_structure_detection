@@ -37,7 +37,8 @@ def generate_dicke_state(n, k):
 def compute_all_4_qubit(rho):
     print("----------- full sep -------------")
     partition_4_part = generate_k_partitionable_partitions(4, 4)
-    current_class = FullSepSDP(4, rho, partition_4_part)
+    current_class = FullSepSDP(4, 1000, rho, partition_4_part, 1)
+    current_class.train(1000)
     p_value_full_sep = current_class.sdp()
     print("Full Sep:", p_value_full_sep)
 
@@ -72,7 +73,8 @@ def compute_all_4_qubit(rho):
 def compute_all_5_qubit(rho):
     print("----------- full sep -------------")
     partition_5_part = generate_k_partitionable_partitions(5, 5)
-    current_class = FullSepSDP(5, rho, partition_5_part)
+    current_class = FullSepSDP(5, 1000, rho, partition_5_part, 1)
+    current_class.train(1000)
     p_value_full_sep = current_class.sdp()
     print("Full Sep:", p_value_full_sep)
 

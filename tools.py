@@ -130,7 +130,7 @@ def compute(P, Gamma, greedy=False, dim=2):
             partition_candidate_list[".".join(sorted(quantum_pair))] = list(quantum_state_set)
         qs_candidate_list.append(partition_candidate_list)
 
-    # select the only one choice
+    # get every column only one choice
     qs_candidate = pd.DataFrame(qs_candidate_list)
     column_pair_dict = dict()
     for column in qs_candidate.columns:

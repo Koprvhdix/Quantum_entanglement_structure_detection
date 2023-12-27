@@ -13,7 +13,8 @@ if __name__ == "__main__":
 
     print("----------- full sep -------------")
     partition_5_part = generate_k_partitionable_partitions(5, 5)
-    current_class = FullSepSDP(5, rho, partition_5_part)
+    current_class = FullSepSDP(5, 1000, rho, partition_5_part, 1)
+    current_class.train(1000)
     p_value_full_sep = current_class.sdp()
     print("Full Sep:", p_value_full_sep)
 

@@ -12,10 +12,10 @@ if __name__ == "__main__":
         for index2 in indices:
             rho[index, index2] = 0.5
 
-    # compute_all_4_qubit(rho)
-    print("----------- 2 part -------------")
-    partition_2_part = generate_k_partitionable_partitions(4, 2)
-    current_class = GD_SDP(4, 300, rho, partition_2_part, 1)
-    current_class.train(1500)
-    p_value_2_part = current_class.sdp()
-    print("2 part:", p_value_2_part)
+    compute_all_4_qubit(rho)
+    # print("----------- 2 part -------------")
+    # partition_2_part = generate_k_partitionable_partitions(4, 2)
+    # current_class = GD_SDP(4, 300, rho, partition_2_part, 1)
+    # current_class.train(1500)
+    # p_value_2_part = current_class.sdp()
+    # print("2 part:", p_value_2_part)

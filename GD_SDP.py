@@ -63,7 +63,7 @@ class GD_SDP(object):
                     info['index'] = index
             self.partition_max_part_info_list.append(info)
 
-        self.ml_queue = deque(maxlen=5)
+        self.ml_queue = deque(maxlen=1)
 
     def train(self, epoch):
         weights_normalized = torch.tensor(
@@ -153,11 +153,9 @@ class GD_SDP(object):
                     f'Epoch {epoch} scalar: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
 
             result = list()
-            weights_result_np = weights_normalized.detach().numpy()
             for point_index in range(self.n_points):
                 temp_point_list = list()
                 for partition_index in range(len(self.partition_list)):
-                    t = weights_result_np[point_index * len(self.partition_list) + partition_index]
                     current_L = list()
                     info = self.partition_max_part_info_list[partition_index]
                     for part_index in range(len(self.partition_list[partition_index].partition_by_list)):
@@ -165,11 +163,11 @@ class GD_SDP(object):
                             continue
                         else:
                             current_L.append(sdp_torch_list[point_index][partition_index][part_index].detach().numpy())
-                    current_L[0] *= t
                     temp_point_list.append(current_L)
                 result.append(temp_point_list)
 
-            self.ml_queue.append(result)
+            if real_distance < self.r:
+                self.ml_queue.append(result)
 
     def sdp(self):
         x_list = self.ml_queue[0]
