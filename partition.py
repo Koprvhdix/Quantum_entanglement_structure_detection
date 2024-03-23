@@ -49,18 +49,3 @@ class Partition(object):
         else:
             return False
 
-
-if __name__ == "__main__":
-    # temp_partition = Partition([[1, 3], [3, 4]], 4)
-    temp_partition = Partition([[2, 3], [1, 4]], 4)
-    temp_partition_2 = Partition([[2, 3], [1, 4]], 4)
-    temp_partition_3 = Partition([[2], [3], [1, 4]], 4)
-    print(temp_partition.partition_by_str)
-    print(temp_partition_2 >= temp_partition_3)
-    print(temp_partition_3 <= temp_partition_2)
-
-    partition_set = set()
-    partition_set.add(temp_partition)
-    partition_set.add(temp_partition_2)
-
-    print(len(partition_set))
