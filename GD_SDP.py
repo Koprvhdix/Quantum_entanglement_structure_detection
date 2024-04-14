@@ -3,6 +3,21 @@ from collections import deque
 import numpy as np
 import picos as pic
 import torch
+from picos import Constant
+
+
+def get_partial_kron_quantum_state(rho, N):
+    result = None
+    rho_picos = Constant("Rho", rho)
+    for index in range(N):
+        current_index_list = [j for j in range(N) if j != index]
+        temp_picos_matrix = rho_picos.partial_trace(current_index_list)
+        temp_matrix = temp_picos_matrix.np
+        if result is None:
+            result = temp_matrix
+        else:
+            result = np.kron(result, temp_matrix)
+    return result
 
 
 def bubble_sort_steps(nums):
@@ -27,7 +42,13 @@ class GD_SDP(object):
         self.n_points = n_points
         self.rho = rho
         self.r = r
-        self.white_noise = torch.eye(2 ** N) / 2 ** N
+
+        # self.white_noise_np = np.eye(2 ** N) / 2 ** N
+        # self.white_noise = torch.eye(2 ** N) / 2 ** N
+
+        self.white_noise_np = get_partial_kron_quantum_state(rho, N)
+        self.white_noise = torch.tensor(self.white_noise_np)
+
         self.beta = torch.flatten(torch.tensor(rho, dtype=torch.complex128) - self.white_noise)
         self.beta_norm = torch.norm(self.beta)
         self.partition_list = partition_list
@@ -65,7 +86,7 @@ class GD_SDP(object):
 
         self.ml_queue = deque(maxlen=1)
 
-    def train(self, epoch):
+    def train(self, epoch, is_epoch, p_value):
         weights_normalized = torch.tensor(
             [1 / (self.n_points * len(self.partition_list))] * (self.n_points * len(self.partition_list)))
         opti_list = list()
@@ -86,7 +107,8 @@ class GD_SDP(object):
 
         param = 1000
 
-        for epoch in range(epoch):
+        train_epoch = 0
+        while True:
             target = torch.zeros(2 ** self.N, 2 ** self.N, dtype=torch.complex128)
 
             sdp_torch_list = list()
@@ -144,13 +166,13 @@ class GD_SDP(object):
                 real_distance.backward()
                 optimizer.step()
                 print(
-                    f'Epoch {epoch} distance: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
+                    f'Epoch {train_epoch} distance: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
             else:
                 optimizer.zero_grad()
                 target_loss.backward()
                 optimizer.step()
                 print(
-                    f'Epoch {epoch} scalar: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
+                    f'Epoch {train_epoch} scalar: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
 
             result = list()
             for point_index in range(self.n_points):
@@ -168,6 +190,14 @@ class GD_SDP(object):
 
             if real_distance < self.r:
                 self.ml_queue.append(result)
+
+            train_epoch += 1
+            if is_epoch:
+                if train_epoch == epoch:
+                    break
+            else:
+                if scalar.item() > p_value:
+                    break
 
     def sdp(self):
         x_list = self.ml_queue[0]
@@ -227,7 +257,7 @@ class GD_SDP(object):
                 else:
                     rho_next += current_rho
 
-        prob.add_constraint(rho_next == (p * self.rho + ((1 - p) / (2 ** self.N)) * np.eye(2 ** self.N)))
+        prob.add_constraint(rho_next == (p * self.rho + (1 - p) * self.white_noise_np))
         prob.set_objective("max", p)
         prob.solve(solver="mosek", primals=True)
         return p.value

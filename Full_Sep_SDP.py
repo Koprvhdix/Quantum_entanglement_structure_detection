@@ -4,8 +4,11 @@ from collections import deque
 import numpy as np
 import picos as pic
 import torch
+from picos import Constant
+from picos.expressions.data import cvx2np
 
 from GD_SDP import swap_chars, bubble_sort_steps
+from inside_polytope_demo.fidelity_compute import compute_fidelity
 
 sigma_z = np.matrix([[1, 0], [0, -1]])
 sigma_x = np.matrix([[0, 1], [1, 0]])
@@ -49,13 +52,33 @@ def generate_init_point():
     return basis
 
 
+def get_partial_kron_quantum_state(rho, N):
+    result = None
+    rho_picos = Constant("Rho", rho)
+    for index in range(N):
+        current_index_list = [j for j in range(N) if j != index]
+        temp_picos_matrix = rho_picos.partial_trace(current_index_list)
+        temp_matrix = temp_picos_matrix.np
+        if result is None:
+            result = temp_matrix
+        else:
+            result = np.kron(result, temp_matrix)
+    return result
+
+
 class FullSepSDP(object):
     def __init__(self, N, n_points, rho, partition_list, r, lr=0.01):
         self.N = N
         self.n_points = n_points
         self.rho = rho
         self.r = r
-        self.white_noise = torch.eye(2 ** N) / 2 ** N
+
+        # self.white_noise_np = np.eye(2 ** N) / 2 ** N
+        # self.white_noise = torch.eye(2 ** N) / 2 ** N
+
+        self.white_noise_np = get_partial_kron_quantum_state(rho, N)
+        self.white_noise = torch.tensor(self.white_noise_np)
+
         self.beta = torch.flatten(torch.tensor(rho, dtype=torch.complex128) - self.white_noise)
         self.beta_norm = torch.norm(self.beta)
         self.partition_list = partition_list
@@ -110,7 +133,7 @@ class FullSepSDP(object):
             cartesian_product = list(itertools.product(*temp_point_list))
             self.init_point_list.append([list(item) for item in cartesian_product])
 
-    def train(self, epoch):
+    def train(self, epoch, is_epoch, p_value):
         weights_normalized = torch.tensor(
             [1 / (self.n_points * len(self.partition_list))] * (self.n_points * len(self.partition_list)))
         opti_list = list()
@@ -131,7 +154,9 @@ class FullSepSDP(object):
 
         param = 1000
 
-        for epoch in range(epoch):
+        train_epoch = 0
+
+        while True:
             target = torch.zeros(2 ** self.N, 2 ** self.N, dtype=torch.complex128)
 
             sdp_torch_list = list()
@@ -189,13 +214,13 @@ class FullSepSDP(object):
                 real_distance.backward()
                 optimizer.step()
                 print(
-                    f'Epoch {epoch} distance: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
+                    f'Epoch {train_epoch} distance: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
             else:
                 optimizer.zero_grad()
                 target_loss.backward()
                 optimizer.step()
                 print(
-                    f'Epoch {epoch} scalar: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
+                    f'Epoch {train_epoch} scalar: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
 
             result = list()
             for point_index in range(self.n_points):
@@ -210,6 +235,14 @@ class FullSepSDP(object):
 
             if real_distance < self.r:
                 self.ml_queue.append(result)
+
+            train_epoch += 1
+            if is_epoch:
+                if train_epoch == epoch:
+                    break
+            else:
+                if scalar.item() > p_value:
+                    break
 
     def sdp(self):
         x_list = [self.ml_queue[0] + self.init_point_list[0]]
@@ -267,8 +300,42 @@ class FullSepSDP(object):
                 else:
                     rho_next += current_rho
 
-        prob.add_constraint(rho_next == (p * self.rho + ((1 - p) / (2 ** self.N)) * np.eye(2 ** self.N)))
+        prob.add_constraint(rho_next == (p * self.rho + (1 - p) * self.white_noise_np))
         prob.set_objective("max", p)
         prob.solve(solver="mosek", primals=True)
+
+        opti_matrix = p.value * np.matrix(self.rho) + (1 - p.value) * self.white_noise_np
+        final_matrix_list = list()
+        exchange_matrix_list = list()
+        for partition_index in range(len(self.partition_list)):
+            info = self.partition_max_part_info_list[partition_index]
+            for point_index in range(len(x_list[partition_index])):
+                current_sdp_rho = np.matrix(rho_list[partition_index][point_index].value)
+                current_rho_list = list()
+                for part_index in range(len(self.partition_list[partition_index].partition_by_list)):
+                    if part_index != info['index']:
+                        current_rho_list.append(x_list[partition_index][point_index][part_index])
+                    else:
+                        current_rho_list.append(current_sdp_rho)
+                final_matrix_list.append(current_rho_list)
+                current_exchange_matrix = list()
+                for exchange_pair in self.exchange_list[partition_index]:
+                    current_exchange_matrix.append(self.exchange_matrix_np[exchange_pair[0]][exchange_pair[1] - exchange_pair[0] - 1])
+                exchange_matrix_list.append(current_exchange_matrix)
+
+        generate_matrix = None
+        for point in final_matrix_list:
+            current_rho = None
+            for matrix in point:
+                if current_rho is None:
+                    current_rho = matrix
+                else:
+                    current_rho = np.kron(current_rho, matrix)
+            if generate_matrix is None:
+                generate_matrix = current_rho
+            else:
+                generate_matrix += current_rho
+
+        compute_fidelity(opti_matrix, generate_matrix)
 
         return p.value
