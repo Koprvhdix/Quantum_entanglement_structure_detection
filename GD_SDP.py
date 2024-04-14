@@ -86,11 +86,8 @@ class GD_SDP(object):
 
         self.ml_queue = deque(maxlen=1)
 
-    def train(self, epoch, is_epoch, p_value):
-        weights_normalized = torch.tensor(
-            [1 / (self.n_points * len(self.partition_list))] * (self.n_points * len(self.partition_list)))
-        opti_list = list()
-        L_list = list()
+        self.opti_list = list()
+        self.L_list = list()
         for index_point in range(self.n_points):
             point_index_list = list()
             for partition in self.partition_list:
@@ -99,11 +96,30 @@ class GD_SDP(object):
                     L_temp = torch.randn(2 ** len(part), 2 ** len(part), dtype=torch.complex128)
                     L_temp.requires_grad_(True)
                     current_L.append(L_temp)
-                opti_list += current_L
+                self.opti_list += current_L
                 point_index_list.append(current_L)
-            L_list.append(point_index_list)
+            self.L_list.append(point_index_list)
 
-        optimizer = torch.optim.Adam(opti_list, lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.opti_list, lr=self.lr)
+
+    def train(self, epoch, is_epoch, p_value):
+        weights_normalized = torch.tensor(
+            [1 / (self.n_points * len(self.partition_list))] * (self.n_points * len(self.partition_list)))
+        # opti_list = list()
+        # L_list = list()
+        # for index_point in range(self.n_points):
+        #     point_index_list = list()
+        #     for partition in self.partition_list:
+        #         current_L = list()
+        #         for part in partition.partition_by_list:
+        #             L_temp = torch.randn(2 ** len(part), 2 ** len(part), dtype=torch.complex128)
+        #             L_temp.requires_grad_(True)
+        #             current_L.append(L_temp)
+        #         opti_list += current_L
+        #         point_index_list.append(current_L)
+        #     L_list.append(point_index_list)
+        #
+        # optimizer = torch.optim.Adam(opti_list, lr=self.lr)
 
         param = 1000
 
@@ -117,7 +133,7 @@ class GD_SDP(object):
                 point_sdp_torch_list = list()
                 for partition_index in range(len(self.partition_list)):
                     partition_sdp_torch_list = list()
-                    current_L = L_list[point_index][partition_index]
+                    current_L = self.L_list[point_index][partition_index]
 
                     L_0 = torch.matmul(current_L[0], current_L[0].conj().t())
                     L_0 = L_0 / L_0.trace()
@@ -162,15 +178,15 @@ class GD_SDP(object):
             #     target - (scalar * torch.tensor(self.rho, dtype=torch.complex128) + (1 - scalar) * self.white_noise))
 
             if real_distance > self.r:
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
                 real_distance.backward()
-                optimizer.step()
+                self.optimizer.step()
                 print(
                     f'Epoch {train_epoch} distance: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
             else:
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
                 target_loss.backward()
-                optimizer.step()
+                self.optimizer.step()
                 print(
                     f'Epoch {train_epoch} scalar: Scalar = {scalar.item()}, Scalar Loss = {target_loss.item()}, real Distance Loss = {real_distance.item()}')
 
@@ -196,7 +212,7 @@ class GD_SDP(object):
                 if train_epoch == epoch:
                     break
             else:
-                if scalar.item() > p_value:
+                if scalar.item() > p_value * 0.95:
                     break
 
     def sdp(self):
